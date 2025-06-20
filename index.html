@@ -3,401 +3,2194 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>JesterCatHub</title>
+    <title>Rhythm Slicer</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Tone.js for sound effects - Updated to a more recent stable version -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
     <style>
-        /* Custom CSS for unique elements and animations */
         body {
-            background-color: #1a1a1a; /* Dark background fallback */
-            color: #e5e5e5; /* Light text */
-            font-family: 'Arial', sans-serif;
+            font-family: 'Inter', sans-serif;
+            background-color: #0d1117; /* Dark background */
+            display: flex;
+            justify-content: center;
+            align-items: center;
             min-height: 100vh;
+            margin: 0;
+            overflow: hidden; /* Prevent scrollbars */
+            color: #e6edf3;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            position: relative; /* Needed for absolutely positioned children */
+        }
+
+        /* Removed blur from CSS, now handled by JS for canvas content */
+        #game-container {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #161b22; /* Slightly lighter dark for container */
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 255, 255, 0.2), 0 5px 15px rgba(255, 0, 255, 0.2);
+            padding: 20px;
+            max-width: 95vw; /* Allow a bit more width on smaller screens */
+            width: 1050px; /* Base width for the game area, slightly wider for padding */
+            box-sizing: border-box;
+            border: 2px solid rgba(0, 255, 255, 0.4);
+            overflow: hidden;
+            display: flex; /* Default to flex for game, hidden by script when modals are active */
+            transition: filter 0.2s ease-out; /* Smooth transition for blur */
+        }
+
+        canvas {
+            background-color: #0d1117;
+            display: block;
+            border-radius: 15px;
+            box-shadow: inset 0 0 15px rgba(0, 255, 255, 0.1);
+            width: 1000px; /* Fixed width as per CANVAS_WIDTH */
+            height: 600px; /* Fixed height as per CANVAS_HEIGHT */
+            border: 1px solid rgba(0, 255, 255, 0.2);
+            max-width: 100%; /* Ensure responsiveness within container */
+            height: auto; /* Maintain aspect ratio if width changes */
+        }
+
+        #game-info {
+            display: flex;
+            justify-content: space-between;
+            width: 1000px; /* Match canvas width */
+            margin-bottom: 15px;
+            padding: 0 10px;
+            box-sizing: border-box;
+            align-items: center;
+            flex-wrap: wrap; /* Allow wrapping on small screens */
+            gap: 15px; /* Space between elements */
+        }
+
+        #score, #raw-combo-display, #multiplier-display, #level-display {
+            font-size: 1.5rem;
+            font-weight: bold;
+            flex-shrink: 0; /* Prevent shrinking */
+        }
+        #score { flex-grow: 1; text-align: left; }
+        #raw-combo-display { flex-grow: 0; text-align: center; margin-left: auto; }
+        #multiplier-display { flex-grow: 0; text-align: center; margin-right: auto; }
+        #level-display { flex-grow: 0; text-align: right; }
+
+
+        #health-bar-container {
+            font-size: 1.5rem;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-shrink: 0;
+            min-width: 280px; /* Ensure health bar has enough space */
+        }
+
+        #health-bar-outer {
+            width: 200px;
+            height: 25px;
+            background-color: #30363d;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid rgba(0, 255, 255, 0.4); /* Cyan border */
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.2); /* Cyan shadow */
+        }
+
+        #health-bar-inner {
+            height: 100%;
+            width: 100%;
+            background: linear-gradient(90deg, #ff007f, #00ffff); /* Pink to Cyan gradient */
+            border-radius: 12px;
+            transition: width 0.1s ease-out;
+        }
+
+        #raw-combo-display {
+            color: #e6edf3; /* Default text color for raw combo */
+            min-width: 100px;
+            text-align: center;
+        }
+
+        #multiplier-display {
+            font-size: 2rem;
+            text-shadow: 0 0 10px rgba(0, 255, 204, 0.5); /* Default shadow, will be updated by JS */
+            min-width: 80px; /* To prevent layout shift */
+            text-align: center;
+        }
+        #multiplier-display.pulsate-combo {
+            animation: comboPulse 0.3s ease-out forwards;
+        }
+
+        @keyframes comboPulse {
+            0% { transform: scale(1); /* text-shadow will be set dynamically */ }
+            50% { transform: scale(1.15); /* text-shadow will be set dynamically */ }
+            100% { transform: scale(1); /* text-shadow will be set dynamically */ }
+        }
+
+        #accuracy-display {
+            position: absolute;
+            bottom: 20px; /* Position at the bottom of the container */
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.6);
+            padding: 8px 15px;
+            border-radius: 10px;
+            /* Initial colors for accuracy, will be overwritten by JS */
+            color: #ff007f;
+            font-size: 1.3rem;
+            font-weight: bold;
+            border: 1px solid rgba(255, 0, 127, 0.3);
+            box-shadow: 0 0 15px rgba(255, 0, 127, 0.2);
+            z-index: 50; /* Above canvas, below modals */
+            transition: color 0.1s ease-out, border-color 0.1s ease-out, box-shadow 0.1s ease-out; /* Smooth transitions for color change */
+        }
+
+        #level-display {
+            color: #00ffff; /* Cyan for level display */
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+        }
+
+
+        /* Modals now positioned fixed to cover the entire viewport */
+        #game-over-screen, #start-screen, #settings-modal, #leaderboard-screen {
+            position: fixed; /* Changed to fixed */
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.85);
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            padding: 20px;
-            overflow: hidden; /* Prevent scrollbars from the background elements */
-            position: relative; /* Needed for absolute positioning of content */
+            text-align: center;
+            /* No border-radius here as it's full screen */
+            z-index: 100;
+            backdrop-filter: blur(5px); /* Frosted glass effect */
+            animation: fadeIn 0.3s ease-out;
         }
 
-        /* Flowing Gradient Background Layer */
-        .flowing-gradient-bg {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: -2; /* Place behind the animated elements */
-            background: linear-gradient(45deg, rgba(255, 0, 0, 0.8), #1a1a1a, rgba(255, 0, 0, 0.8));
-            background-size: 800% 800%;
-            animation: flowGradient 20s linear infinite;
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
         }
 
-        @keyframes flowGradient {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
+        #start-screen h1, #game-over-screen h2, #leaderboard-screen h1 {
+            font-size: 3rem;
+            color: #00ffff;
+            text-shadow: 0 0 15px rgba(0, 255, 255, 0.6);
+            margin-bottom: 20px;
         }
 
-
-        /* Background animation container for gambling elements */
-        .background-animation {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: -1; /* Place behind content, above gradient */
-            pointer-events: none;
-            overflow: hidden;
-        }
-
-        /* Styling for individual animated background elements */
-        .bg-element {
-            position: absolute;
-            background-size: contain;
-            background-repeat: no-repeat;
-            background-position: center;
-            filter: drop-shadow(0 0 5px rgba(255, 0, 0, 0.3));
-            width: 50px;
-            height: 50px;
-            will-change: transform, opacity, filter;
-        }
-
-        /* CSS filter to make a red chip look black */
-        .bg-element.black-chip {
-             filter: grayscale(100%) brightness(50%) contrast(150%) drop-shadow(0 0 5px rgba(0, 0, 0, 0.5));
-        }
-
-        /* Keyframes for consistent downward flow and rotation */
-        @keyframes fallAndRotate {
-            0% { transform: translate(var(--start-x, 0), -20vh) rotate(var(--start-rotate, 0deg)); opacity: 1; }
-            100% { transform: translate(var(--end-x, 0), 120vh) rotate(var(--end-rotate, 360deg)); opacity: 1; }
-        }
-
-        /* Keyframes for the pulsating effect */
-        @keyframes pulsate {
-            0% { box-shadow: 0 0 15px rgba(255, 0, 0, 0.5); }
-            50% { box-shadow: 0 0 25px rgba(255, 0, 0, 1), 0 0 30px rgba(255, 0, 0, 0.8); }
-            100% { box-shadow: 0 0 15px rgba(255, 0, 0, 0.5); }
-        }
-
-
-        /* Styling for the card containers */
-        .card-container {
-             background-color: #2a2a2a;
-             border: 2px solid #ff0000;
-             box-shadow: 0 0 15px rgba(255, 0, 0, 0.5);
-             border-radius: 12px;
-             padding: 30px;
-             text-align: center;
-             position: relative;
-             z-index: 1;
-             max-width: 400px;
-             width: 95%;
-        }
-
-        /* Apply pulsating animation to the key system card */
-        #keySystemSection {
-            animation: pulsate 2s infinite ease-in-out;
-        }
-
-
-        /* Styling for the input box */
-        .key-input {
-            background-color: #1a1a1a;
-            border: 2px solid #ff0000;
-            border-radius: 8px;
-            padding: 10px 15px;
-            color: #e5e5e5;
-            font-size: 1em;
-            margin-bottom: 15px;
-            width: 100%;
-            box-sizing: border-box;
-        }
-
-        .key-input:focus {
-            outline: none;
-            border-color: #cc0000;
-            box-shadow: 0 0 8px rgba(255, 0, 0, 0.6);
-        }
-
-        /* Styling for buttons */
-        .action-button {
-            background-color: #ff0000;
-            color: #ffffff;
-            transition: background-color 0.3s ease-in-out, transform 0.1s ease-in-out, box-shadow 0.3s ease-in-out;
-            display: inline-block;
-            text-decoration: none;
-            font-size: 1.1em;
-            padding: 12px 25px;
-            border-radius: 25px;
-            font-weight: bold;
-            cursor: pointer;
-            margin: 5px;
-        }
-
-        .action-button:hover {
-            background-color: #cc0000;
-            transform: scale(0.98);
-            box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.4);
-        }
-
-        .action-button:active {
-            transform: scale(0.95);
-        }
-
-        /* Styling for messages (correct/incorrect key) */
-        .key-message {
+        #game-over-screen p {
+            font-size: 1.8rem;
             margin-top: 15px;
-            font-size: 1em;
+            color: #00ffff; /* Blue for game over stats */
+        }
+
+        .btn {
+            background: linear-gradient(145deg, #00ffff, #007bff);
+            color: white;
+            padding: 12px 25px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.2rem;
+            cursor: pointer;
+            margin: 10px;
+            box-shadow: 0 5px 15px rgba(0, 255, 255, 0.3);
+            transition: all 0.3s ease;
             font-weight: bold;
+            position: relative;
+            overflow: hidden;
+            outline: none;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 300%;
+            height: 300%;
+            background: rgba(255, 255, 255, 0.15);
+            transition: all 0.75s;
+            border-radius: 50%;
+            z-index: 0;
+            transform: translate(-50%, -50%) scale(0);
+        }
+
+        .btn:hover::before {
+            transform: translate(-50%, -50%) scale(1);
             opacity: 0;
-            transition: opacity 0.3s ease-in-out;
         }
 
-        .key-message.show {
-            opacity: 1;
+        .btn:hover {
+            box-shadow: 0 8px 20px rgba(0, 255, 255, 0.5), 0 0 30px rgba(0, 255, 255, 0.7);
+            transform: translateY(-2px);
         }
 
-        .key-message.correct {
-            color: #00ff00;
+        .btn:active {
+            transform: translateY(1px);
+            box-shadow: 0 3px 10px rgba(0, 255, 255, 0.3);
         }
 
-        .key-message.incorrect {
-            color: #ff0000;
+        .settings-btn {
+            background: none;
+            border: none;
+            font-size: 1.8rem;
+            color: #00ffff;
+            cursor: pointer;
+            margin-left: 20px;
+            transition: color 0.3s ease;
         }
 
-        /* Utility class to hide elements */
-        .hidden {
-            display: none;
+        .settings-btn:hover {
+            color: #ffcc00;
         }
 
-        /* Styling for the main hub title */
-         .main-hub-title {
-             text-align: center;
-             color: #ff0000; /* Set the color to match the header */
-             font-weight: bold;
-             font-size: 3rem;
-             margin-bottom: 1rem; /* Space below title */
-         }
+        .modal-content {
+            background-color: #1e242c;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0, 255, 255, 0.3);
+            width: 90%;
+            max-width: 500px;
+            box-sizing: border-box;
+            border: 1px solid rgba(0, 255, 255, 0.3);
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
 
-         /* Styling for the main hub subtitle */
-         .main-hub-subtitle {
-             text-align: center;
-             font-size: 1.25rem;
-             color: #a0a0a0; /* Grayish color */
-             margin-bottom: 2rem; /* Space below subtitle */
-         }
+        .modal-content h3 {
+            font-size: 2rem;
+            color: #00ffff;
+            margin-bottom: 20px;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.4);
+        }
 
+        .modal-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 1.1rem;
+            padding: 10px 0;
+            border-bottom: 1px dashed rgba(255, 255, 255, 0.2);
+        }
 
+        .modal-item:last-child {
+            border-bottom: none;
+        }
+
+        .key-display {
+            background-color: #30363d;
+            padding: 8px 15px;
+            border-radius: 8px;
+            border: 1px solid rgba(0, 255, 255, 0.2);
+            min-width: 60px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .key-display:hover {
+            background-color: #404c5a;
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+        }
+
+        input[type="color"] {
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            width: 40px;
+            height: 40px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 0;
+            border-radius: 10px;
+            overflow: hidden;
+            transition: all 0.2s ease;
+        }
+
+        input[type="color"]::-webkit-color-swatch-wrapper {
+            padding: 0;
+        }
+
+        input[type="color"]::-webkit-color-swatch {
+            border: 2px solid #fff;
+            border-radius: 8px;
+        }
+
+        input[type="color"]:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.4);
+        }
+
+        input[type="text"].initials-input {
+            background-color: #30363d;
+            color: #e6edf3;
+            border: 1px solid rgba(0, 255, 255, 0.2);
+            border-radius: 8px;
+            padding: 8px 12px;
+            width: 100px;
+            text-align: center;
+            font-size: 1.2rem;
+            text-transform: uppercase; /* Force uppercase for initials */
+        }
+        input[type="text"].initials-input:focus {
+            outline: none;
+            border-color: #00ffff;
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.4);
+        }
+
+        .close-btn {
+            background: linear-gradient(145deg, #ff007f, #ff4d00);
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            margin-top: 20px;
+            box-shadow: 0 3px 10px rgba(255, 0, 127, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .close-btn:hover {
+            box-shadow: 0 5px 15px rgba(255, 0, 127, 0.5);
+            transform: translateY(-1px);
+        }
+
+        .pulsating-element {
+            animation: pulse 1.5s infinite alternate;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(1.05); opacity: 0.9; }
+        }
+
+        /* Settings Modal Specifics */
+        .settings-nav {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+            border-bottom: 1px solid rgba(0, 255, 255, 0.2);
+            padding-bottom: 10px;
+        }
+
+        .settings-nav button {
+            background: none;
+            border: none;
+            color: #e6edf3;
+            font-size: 1.2rem;
+            padding: 8px 15px;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            margin: 0 5px;
+        }
+
+        .settings-nav button:hover {
+            background-color: rgba(0, 255, 255, 0.1);
+        }
+
+        .settings-nav button.active {
+            background-color: #00ffff;
+            color: #161b22;
+            font-weight: bold;
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+        }
+
+        .settings-section {
+            display: none; /* Hidden by default */
+            flex-direction: column;
+            gap: 15px;
+        }
+        .settings-section.active {
+            display: flex; /* Show active section */
+        }
+
+        /* Leaderboard Specifics */
+        #leaderboard-section {
+            background-color: #1e242c;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0, 255, 255, 0.3);
+            width: 90%;
+            max-width: 400px;
+            margin-top: 25px;
+            border: 1px solid rgba(0, 255, 255, 0.3);
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        #leaderboard-section h3 {
+            font-size: 1.8rem;
+            color: #00ffff;
+            margin-bottom: 15px;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.4);
+            text-align: center;
+        }
+
+        .leaderboard-entry {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 15px;
+            /* Changed background gradient to match text colors */
+            background: linear-gradient(90deg, rgba(0, 255, 204, 0.1), rgba(255, 0, 127, 0.1)); 
+            border-radius: 8px;
+            margin-bottom: 8px;
+            font-size: 1.1rem;
+            border: 1px solid rgba(0, 255, 255, 0.2);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        .leaderboard-entry:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 10px rgba(0, 255, 255, 0.4);
+        }
+
+        .leaderboard-entry span:first-child {
+            font-weight: bold;
+            color: #00ffcc; /* Cyan for scores */
+        }
+        .leaderboard-entry span:last-child {
+            color: #ff007f; /* Pink for accuracy */
+        }
     </style>
 </head>
 <body>
-
-    <div class="flowing-gradient-bg"></div>
-
-    <div class="background-animation"></div>
-
-    <div id="keySystemSection" class="card-container">
-        <h1 class="text-4xl font-bold text-red-600 mb-6">Key System</h1>
-
-        <div class="mb-6">
-            <a href="https://link-center.net/1344700/jestercatsscripthub-post1" target="_blank" class="action-button">
-                Get Key
-            </a>
+    <!-- Game Container (initially visible, hidden when modals are open) -->
+    <div id="game-container">
+        <div id="game-info">
+            <div id="score">Score: 0</div>
+            <div id="raw-combo-display">Combo: 0</div> <!-- New element for raw combo count -->
+            <div id="multiplier-display">1x</div> <!-- Displays the multiplier with color changes -->
+            <div id="level-display">Level: 1</div> <!-- New Level Display -->
+            <div id="health-bar-container">
+                Health:
+                <div id="health-bar-outer">
+                    <div id="health-bar-inner"></div>
+                </div>
+            </div>
+            <div>
+                <!-- Removed settings-btn from game-info, handled by main menu -->
+            </div>
         </div>
-
-        <input type="text" id="keyInput" class="key-input" placeholder="Enter your key here">
-
-        <button id="checkKeyButton" class="action-button">
-            Check Key
-        </button>
-
-        <div id="keyMessage" class="key-message"></div>
+        <canvas id="gameCanvas"></canvas>
+        <div id="accuracy-display">Accuracy: 100.00%</div>
     </div>
 
-    <div id="mainHubSection" class="card-container hidden">
-        <h1 class="main-hub-title">JesterCatHub</h1>
-        <p class="main-hub-subtitle">Disable antivirus before download else it will not work!</p>
+    <!-- Modals (now direct children of body and fixed position) -->
+    <div id="start-screen" class="pulsating-element">
+        <h1>Rhythm Slicer</h1>
+        <button id="start-game-btn" class="btn">Start Game</button>
+        <button id="main-menu-options-btn" class="btn">Options</button>
+        <button id="leaderboard-button-main" class="btn">Leaderboard</button>
+    </div>
 
-        <h2 class="text-3xl font-semibold text-red-500 mb-4">Get the Script!</h2>
-
-        <p class="text-gray-300 mb-6">Click the button below to download the executer and script for roblox!</p>
-
-        <a href="https://github.com/JesterCat533/JesterCatsHub/blob/main/script" target="_blank" id="copyScriptLink" class="action-button mb-4">
-            JesterCats Script
-        </a>
-
-        <a href="https://github.com/JesterCat533/ExecuterForAllLvL7/raw/refs/heads/main/Bootstrapper.exe" class="action-button mb-4">
-            Download Executer
-        </a>
+    <div id="game-over-screen" style="display: none;">
+        <h2>Game Over!</h2>
+        <p id="final-score">Final Score: 0</p>
+        <p id="final-accuracy">Final Accuracy: 0.00%</p>
+        <p id="final-level">Level Reached: 1</p> <!-- Display final level -->
+        <div class="flex flex-col items-center gap-4 mt-4">
+            <label for="initials-input" class="text-white text-lg">Enter Your Initials (3 chars):</label>
+            <input type="text" id="initials-input" class="initials-input" maxlength="3" placeholder="ABC">
+            <button id="submit-score-btn" class="btn">Submit Score to Leaderboard</button>
         </div>
+        <button id="restart-game-btn" class="btn">Restart</button>
+        <button id="game-over-return-to-main-btn" class="btn">Return to Main Menu</button>
+        <!-- Leaderboard button is now part of the submit flow or main menu -->
+    </div>
+
+    <div id="settings-modal" style="display: none;">
+        <div class="modal-content">
+            <h3>Game Settings</h3>
+            <div class="settings-nav">
+                <button id="nav-controls" class="active">Controls & Appearance</button>
+                <button id="nav-gameplay">Gameplay & Audio</button>
+                <!-- Removed Account tab as authentication is now anonymous -->
+            </div>
+
+            <div id="section-controls" class="settings-section active">
+                <div class="modal-item">
+                    <span>Left Block Key:</span>
+                    <span id="left-key-display" class="key-display">U</span>
+                </div>
+                <div class="modal-item">
+                    <span>Right Block Key:</span>
+                    <span id="right-key-display" class="key-display">O</span>
+                </div>
+                <div class="modal-item">
+                    <span>Left Block Color:</span>
+                    <input type="color" id="left-color-picker">
+                </div>
+                <div class="modal-item">
+                    <span>Right Block Color:</span>
+                    <input type="color" id="right-color-picker">
+                </div>
+            </div>
+
+            <div id="section-gameplay" class="settings-section">
+                <div class="modal-item">
+                    <span>Music URL (MP3/WAV):</span>
+                    <input type="text" id="music-url-input" placeholder="Paste direct audio URL here" class="flex-grow bg-gray-700 text-white p-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none">
+                </div>
+                <button id="play-music-btn" class="btn">Play Music</button>
+            </div>
+
+            <button id="return-to-main-menu-settings-btn" class="close-btn">Return to Main Menu</button>
+        </div>
+    </div>
+
+    <!-- New Leaderboard Screen -->
+    <div id="leaderboard-screen" style="display: none;">
+        <h1>Leaderboard</h1>
+        <div id="leaderboard-section">
+            <p id="leaderboard-loading" class="text-center text-gray-500">Loading Leaderboard...</p>
+            <div id="leaderboard-list">
+                <!-- Leaderboard entries will be dynamically inserted here -->
+            </div>
+        </div>
+        <button id="leaderboard-return-to-main-btn" class="btn">Return to Main Menu</button>
+    </div>
+
+    <audio id="background-music" loop></audio>
+
+    <script type="module">
+        // Firebase Imports
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, query, orderBy, limit, getDocs, addDoc, onSnapshot, serverTimestamp, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // PASTE YOUR FIREBASE CONFIGURATION OBJECT HERE.
+        const firebaseConfig = {
+          apiKey: "AIzaSyAIFsE6cwpChwGqLMDgoZlaalbOk_zjMA0",
+          authDomain: "rythm-slicer-game.firebaseapp.com",
+          projectId: "rythm-slicer-game",
+          storageBucket: "rythm-slicer-game.firebaseapp.com",
+          messagingSenderId: "42501787115",
+          appId: "1:42501787115:web:fb2fc5bc867e31d4a05dae",
+        };
+
+        // For GitHub Pages, we use the projectId as the appId for Firestore path consistency.
+        const appId = firebaseConfig.projectId;
+
+        let app;
+        let db;
+        let auth;
+        let userId = null;
+        let username = "Guest"; // Default username display
+        let isAuthReady = false;
+
+        // User ID Display Element (removed as not needed for anonymous user display)
+        // const userIdDisplay = document.createElement('div');
+        // userIdDisplay.id = 'user-id-display';
+        // userIdDisplay.className = 'absolute top-4 left-4 text-sm text-gray-400';
+        // userIdDisplay.textContent = 'User ID: Loading...';
+        // document.body.appendChild(userIdDisplay);
+
+        // Customization (only keybinds and colors remain)
+        let keybinds = {
+            'left': 'u',
+            'right': 'o'
+        };
+        let blockColors = {
+            'left': '#00ffff', // Cyan
+            'right': '#ff007f' // Pink
+        };
+
+        // All possible keys for slow blocks, excluding left/right keybinds
+        // This array is now initialized *after* keybinds are defined, to prevent ReferenceError.
+        const ALL_POSSIBLE_SLOW_KEYS = Array.from({length: 26}, (_, i) => String.fromCharCode(97 + i)) // a-z
+            .concat(Array.from({length: 10}, (_, i) => String.fromCharCode(48 + i))) // 0-9
+            .filter(key => key !== keybinds['left'] && key !== keybinds['right']);
 
 
-    <audio id="bgMusic" loop>
-        <source src="placeholder_casino_music.mp3" type="audio/mpeg">
-        Your browser does not support the audio element.
-    </audio>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreDisplay = document.getElementById('score');
+        const healthBarInner = document.getElementById('health-bar-inner');
+        const rawComboDisplay = document.getElementById('raw-combo-display'); // New: Raw combo count
+        const multiplierDisplay = document.getElementById('multiplier-display'); // Renamed: Multiplier display
+        const levelDisplay = document.getElementById('level-display'); // Level Display Element
+        const accuracyDisplay = document.getElementById('accuracy-display');
+        const startScreen = document.getElementById('start-screen');
+        const startGameBtn = document.getElementById('start-game-btn');
+        const mainMenuOptionsBtn = document.getElementById('main-menu-options-btn'); // New: Options button on main menu
+        const leaderboardButtonMain = document.getElementById('leaderboard-button-main'); // New: Leaderboard button on main menu
+        const gameOverScreen = document.getElementById('game-over-screen');
+        const finalScoreDisplay = document.getElementById('final-score');
+        const finalAccuracyDisplay = document.getElementById('final-accuracy');
+        const finalLevelDisplay = document.getElementById('final-level'); // Corrected this line
+        const initialsInput = document.getElementById('initials-input'); // New: Initials input
+        const submitScoreBtn = document.getElementById('submit-score-btn'); // New: Submit score button
+        const restartGameBtn = document.getElementById('restart-game-btn');
+        const gameOverReturnToMainBtn = document.getElementById('game-over-return-to-main-btn'); // New: Return to Main from game over
+        const leaderboardButtonGameOver = document.getElementById('leaderboard-button-gameover'); // Removed, handled by submit flow
+        const settingsModal = document.getElementById('settings-modal');
+        const returnToMainMenuSettingsBtn = document.getElementById('return-to-main-menu-settings-btn'); // New: Return to Main from settings
+        const leftKeyDisplay = document.getElementById('left-key-display');
+        const rightKeyDisplay = document.getElementById('right-key-display');
+        const leftColorPicker = document.getElementById('left-color-picker');
+        const rightColorPicker = document.getElementById('right-color-picker');
+        const musicUrlInput = document.getElementById('music-url-input');
+        const playMusicBtn = document.getElementById('play-music-btn');
+        const backgroundMusic = document.getElementById('background-music');
+        const gameContainer = document.getElementById('game-container'); // Get the game container
 
-    <audio id="hoverSound">
-         <source src="placeholder_button_hover.mp3" type="audio/mpeg">
-        Your browser does not support the audio element.
-    </audio>
+        // Leaderboard elements
+        const leaderboardScreen = document.getElementById('leaderboard-screen'); // The new leaderboard screen
+        const leaderboardList = document.getElementById('leaderboard-list');
+        const leaderboardLoading = document.getElementById('leaderboard-loading'); // Loading indicator
+        const leaderboardReturnToMainBtn = document.getElementById('leaderboard-return-to-main-btn'); // Button on leaderboard screen
 
 
-    <script>
-        // The correct key
-        const correctKey = "JesterCatIsAmazingXOXO";
+        // Settings Navigation elements
+        const navControls = document.getElementById('nav-controls');
+        const navGameplay = document.getElementById('nav-gameplay');
+        // Removed navAccount as there's no explicit account management anymore
+        const sectionControls = document.getElementById('section-controls');
+        const sectionGameplay = document.getElementById('section-gameplay');
+        // Removed sectionAccount
+        // Removed loginBtn and logoutBtn from JS references as their elements are removed from HTML
 
-        // Get elements
-        const keySystemSection = document.getElementById('keySystemSection');
-        const mainHubSection = document.getElementById('mainHubSection');
-        const keyInput = document.getElementById('keyInput');
-        const checkKeyButton = document.getElementById('checkKeyButton');
-        const keyMessage = document.getElementById('keyMessage');
-        const backgroundAnimationContainer = document.querySelector('.background-animation');
-        // Audio elements
-        const bgMusic = document.getElementById('bgMusic');
-        const hoverSound = document.getElementById('hoverSound');
 
-        // Array of image URLs for the background elements (only the red chip)
-        const imageUrls = [
-            'https://png.pngtree.com/png-vector/20220729/ourmid/pngtree-poker-chip-png-image_6091092.png' // Red Chip
+        // Game Constants (adjustable)
+        const CANVAS_WIDTH = 1000; // Increased width
+        const CANVAS_HEIGHT = 600; // Increased height
+        const TARGET_Y = CANVAS_HEIGHT * 0.85; // Y position where blocks are hit
+        const INITIAL_BLOCK_SIZE = 50;
+        const BASE_BLOCK_TRAVEL_DURATION = 2000; // Base duration in ms for a block to travel (slower initial speed)
+        const SLOW_BLOCK_TRAVEL_FACTOR = 2; // Slow block falls at half the speed (twice the duration)
+        const MAX_HEALTH = 100;
+        const HEALTH_LOSS_PER_MISS = 15;
+        const HEALTH_REGEN_PER_HIT = 5;
+        const PARTICLE_COUNT_ON_HIT = 15;
+        const PARTICLE_LIFETIME = 400; // Milliseconds
+        const CHAIN_MIN_LENGTH = 2;
+        const CHAIN_MAX_LENGTH = 4;
+        const CHAIN_OFFSET_TIME = 200; // Time in ms between chain blocks - increased for spacing
+
+        const MAX_ACCURACY_POINTS_PER_NOTE = 115;
+        const MIN_ACCURACY_POINTS_PER_NOTE = 15;
+
+        const POPUP_LIFETIME = 800; // Milliseconds for popup to fade
+        const POPUP_MOVE_SPEED = 0.05;
+
+        const CABLE_WIDTH = 8;
+        const CABLE_RADIUS = 4;
+
+        const HEALTH_LOSS_ON_BOMB_HIT = HEALTH_LOSS_PER_MISS * 2;
+        const HEALTH_GAIN_ON_BOMB_MISS = HEALTH_REGEN_PER_HIT * 1.5;
+
+        // Spawn chances
+        const SINGLE_NOTE_CHANCE = 0.35; // Reduced to make room for slow blocks
+        const DOUBLE_NOTE_CHANCE = 0.20;
+        const CHAIN_NOTE_CHANCE = 0.35; // Reduced
+        const SLOW_BLOCK_CHANCE = 0.10; // New: Chance for slow block
+        const BOMB_INTEGRATION_CHANCE = 0.25;
+
+        const HIT_PRECISION_WINDOW = 200;
+
+        // Combo Multiplier Constants
+        const COMBO_MULTIPLIERS = [1, 3, 5, 10]; // Multiplier values
+        const COMBO_LEVEL_UP_HITS = 5; // Notes needed for each multiplier increase
+        const COMBO_COLORS = [
+            '#00ffcc', // 1x (Greenish-cyan, original combo color)
+            '#66ffb3', // 3x (Lighter green)
+            '#ffcc00', // 5x (Yellow)
+            '#ff007f'  // 10x (Pink/Red, matching right block color)
         ];
 
-        let chipSpawningInterval = null; // Variable to hold the interval ID
+        // Level System Constants
+        const LEVEL_UP_DURATION = 60000; // 1 minute in milliseconds
+        const BASE_NJS_VALUE = 5; // Starting NJS level (for reference)
+        const NJS_PER_LEVEL_INCREASE = 5; // NJS increase per level, as requested
+        const BASE_SPAWN_INTERVAL = 1200; // Initial block spawn interval (ms)
+        const SPAWN_INTERVAL_DECREASE_PER_LEVEL = 100; // ms decrease in spawn interval per level
+        const MIN_SPAWN_INTERVAL = 400; // Minimum spawn interval to prevent unplayability
 
-        // Function to create and animate a single background element
-        function createBackgroundElement() {
-            const element = document.createElement('div');
-            element.classList.add('bg-element');
+        // Lane Variation Constants
+        const LANE_COUNT_PER_SIDE = 5; // 5 lanes on left, 5 on right
+        let leftLaneCenters = []; // Stores the X coordinates for the center of each left lane
+        let rightLaneCenters = []; // Stores the X coordinates for the center of each right lane
 
-            // Always use the red chip image
-            const imageUrl = imageUrls[0];
-            element.style.backgroundImage = `url('${imageUrl}')`;
 
-            // Randomly make some red chips black (only apply to the chip image)
-            if (Math.random() < 0.5) { // 50% chance to be black
-                 element.classList.add('black-chip');
+        // Game State Variables
+        let score = 0;
+        let health = MAX_HEALTH;
+        let rawComboCount = 0; // The actual combo count
+        let consecutiveHits = 0; // Tracks hits for multiplier progression
+        let currentComboLevel = 0; // Index for COMBO_MULTIPLIERS array
+        let totalNotesHit = 0;
+        let totalAccuracySum = 0;
+        let blocks = [];
+        let particles = [];
+        let popups = [];
+        let lastBlockSpawnTime = 0;
+        let blockSpawnInterval = BASE_SPAWN_INTERVAL; // Initialized with BASE_SPAWN_INTERVAL
+        let gameActive = false;
+        let animationFrameId;
+        let keysPressed = {};
+        let gameWasActiveBeforeSettings = false; // Flag to remember if game was active when settings opened
+        let doubleNoteCounter = 0;
+        let gameOverHandled = false;
+
+        let level = 1; // Current game level
+        let lastLevelUpTime = 0; // Timestamp of the last level up
+
+        let activeSlowBlock = null; // New: Holds the reference to the current active slow block
+
+        let awaitingKeybind = null;
+
+        // Tone.js Audio Setup
+        let kickSynth, hiHatSynth, scratchSynth;
+        let synthsInitialized = false;
+
+        function setupAudioSynths() {
+            if (typeof Tone === 'undefined') {
+                console.error("Tone.js is not loaded during setupAudioSynths. This should not happen if called after Tone.start().");
+                return;
+            }
+            if (synthsInitialized) {
+                console.log("Audio synths already initialized.");
+                return;
             }
 
-            // Random size (adjusted range for more variety)
-            const size = Math.random() * 100 + 50; // Size between 50px and 150px
-            element.style.width = `${size}px`;
-            element.style.height = `${size}px`;
+            kickSynth = new Tone.MembraneSynth({
+                pitchDecay: 0.02,
+                octaves: 10,
+                oscillator: { type: "sine" },
+                envelope: {
+                    attack: 0.001, decay: 0.4, sustain: 0.01, release: 0.8, attackCurve: "exponential"
+                }
+            }).toDestination();
 
-            // Set starting position (always above viewport for consistent downward flow)
-            const elementStartX = Math.random() * 100; // Any horizontal position
-            const elementStartY = -20 - (Math.random() * 10); // Start well above
+            hiHatSynth = new Tone.NoiseSynth({
+                noise: { type: "white" },
+                envelope: {
+                    attack: 0.001, decay: 0.1, sustain: 0.01, release: 0.05
+                },
+                filterEnvelope: {
+                    attack: 0.001, decay: 0.1, sustain: 0.01, release: 0.05,
+                    baseFrequency: 4000, octaves: -2, exponent: 2
+                }
+            }).toDestination();
 
-            element.style.left = `${elementStartX}vw`;
-            element.style.top = `${elementStartY}vh`;
+            scratchSynth = new Tone.PolySynth(Tone.Synth, {
+                oscillator : { type : "sawtooth" },
+                envelope : {
+                    attack : 0.01, decay : 0.1, sustain : 0.01, release : 0.2
+                }
+            }).toDestination();
 
-            // Random animation duration and delay (increased range for longer life)
-            const duration = Math.random() * 25 + 20; // Duration between 20s and 45s
-            const delay = Math.random() * 5; // Reduced delay range for more consistent spawning
+            synthsInitialized = true;
+            console.log("Audio synths initialized successfully.");
+        }
 
-            // Random rotation for start and end
-            const startRotate = Math.random() * 360;
-            const endRotate = startRotate + (Math.random() > 0.5 ? 360 : -360) * (Math.random() * 2 + 1); // Rotate 1-3 full turns
+        // --- Utility Functions ---
 
-            // Set animation properties (only using fallAndRotate concept)
-            element.style.animation = `fallAndRotate ${duration}s linear ${delay}s forwards`; // Use forwards to stay at end state
+        // Function to draw a rounded rectangle
+        function roundRect(ctx, x, y, width, height, radius) {
+            if (width < 2 * radius) radius = width / 2;
+            if (height < 2 * radius) radius = height / 2;
+            ctx.beginPath();
+            ctx.moveTo(x + radius, y);
+            ctx.arcTo(x + width, y, x + width, y + height, radius);
+            ctx.arcTo(x + width, y + height, x, y + height, radius);
+            ctx.arcTo(x, y + height, x, y, radius);
+            ctx.arcTo(x, y, x + width, y, radius);
+            ctx.closePath();
+        }
 
-             // Set CSS variables for animation keyframes
-             element.style.setProperty('--start-x', `${elementStartX}vw`);
-             element.style.setProperty('--start-y', `${elementStartY}vh`);
-             // Ensure end positions are well below the viewport for consistent falling
-             element.style.setProperty('--end-x', `${elementStartX + (Math.random() - 0.5) * 100}vw`); // Increased horizontal drift range
-             element.style.setProperty('--end-y', `${130 + (Math.random() * 30)}vh`); // End well below
-             element.style.setProperty('--start-rotate', `${startRotate}deg`);
-             element.style.setProperty('--end-rotate', `${endRotate}deg`);
+        // Initialize canvas dimensions and lane positions
+        function initCanvas() {
+            canvas.width = CANVAS_WIDTH;
+            canvas.height = CANVAS_HEIGHT;
+
+            leftLaneCenters = [];
+            rightLaneCenters = [];
+            const halfCanvasWidth = CANVAS_WIDTH / 2;
+
+            // Calculate positions for 5 lanes on the left side
+            const leftLaneTotalWidth = halfCanvasWidth;
+            const leftLaneSpacing = leftLaneTotalWidth / LANE_COUNT_PER_SIDE;
+            for (let i = 0; i < LANE_COUNT_PER_SIDE; i++) {
+                leftLaneCenters.push((i * leftLaneSpacing) + (leftLaneSpacing / 2));
+            }
+
+            // Calculate positions for 5 lanes on the right side
+            const rightLaneTotalWidth = halfCanvasWidth;
+            const rightLaneSpacing = rightLaneTotalWidth / LANE_COUNT_PER_SIDE;
+            for (let i = 0; i < LANE_COUNT_PER_SIDE; i++) {
+                rightLaneCenters.push(halfCanvasWidth + (i * rightLaneSpacing) + (rightLaneSpacing / 2));
+            }
+        }
+
+        // Function to clamp a value between a min and max
+        function clamp(value, min, max) {
+            return Math.max(min, Math.min(value, max));
+        }
+
+        // --- Game Logic ---
+
+        // Reset game state
+        function resetGame() {
+            score = 0;
+            health = MAX_HEALTH;
+            rawComboCount = 0; // Reset raw combo
+            consecutiveHits = 0;
+            currentComboLevel = 0;
+            totalNotesHit = 0;
+            totalAccuracySum = 0;
+            blocks = [];
+            particles = [];
+            popups = [];
+            lastBlockSpawnTime = 0;
+            blockSpawnInterval = BASE_SPAWN_INTERVAL; // Reset to base interval
+            gameActive = true;
+            gameOverHandled = false;
+            activeSlowBlock = null; // Reset active slow block
+
+            level = 1; // Reset level
+            lastLevelUpTime = performance.now(); // Start level timer
+
+            updateScoreDisplay();
+            updateHealthBar();
+            updateRawComboDisplay(); // Update raw combo display
+            updateMultiplierDisplay(); // Update multiplier display
+            updateAccuracyDisplay(); // Update accuracy display immediately
+            updateLevelDisplay(); // Update level display
+
+            // Hide initials input and submit button until game over
+            initialsInput.style.display = 'none';
+            submitScoreBtn.style.display = 'none';
+            initialsInput.value = ''; // Clear previous initials
+
+            // Show game elements
+            gameContainer.style.display = 'flex';
+            startScreen.style.display = 'none';
+            gameOverScreen.style.display = 'none';
+            leaderboardScreen.style.display = 'none'; // Hide leaderboard screen too
+
+            // Ensure no lingering animation frames if restarting from game over
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+            }
+            backgroundMusic.pause();
+            backgroundMusic.currentTime = 0;
+            gameLoop(performance.now()); // Start the game loop with current timestamp
+        }
+
+        // End the game
+        function endGame() {
+            if (gameOverHandled) return;
+
+            gameOverHandled = true;
+
+            gameActive = false;
+            cancelAnimationFrame(animationFrameId);
+            finalScoreDisplay.textContent = `Final Score: ${score}`;
+            finalAccuracyDisplay.textContent = `Final Accuracy: ${getOverallAccuracy().toFixed(2)}%`;
+            finalLevelDisplay.textContent = `Level Reached: ${level}`; // Display final level
+            gameOverScreen.style.display = 'flex';
+            gameContainer.style.display = 'none'; // Hide game container
+            backgroundMusic.pause();
+
+            // Show initials input and submit button on game over
+            initialsInput.style.display = 'block';
+            submitScoreBtn.style.display = 'block';
+            initialsInput.focus(); // Focus the input for easy typing
+
+            if (typeof Tone !== 'undefined' && Tone.Transport) {
+                Tone.Transport.stop();
+                Tone.Transport.cancel();
+            }
+        }
+
+        // Update score display
+        function updateScoreDisplay() {
+            scoreDisplay.textContent = `Score: ${score}`;
+        }
+
+        // Update health bar visual
+        function updateHealthBar() {
+            healthBarInner.style.width = `${clamp(health, 0, MAX_HEALTH)}%`;
+            if (health <= 0) {
+                endGame();
+            }
+        }
+
+        // Update raw combo display
+        function updateRawComboDisplay() {
+            rawComboDisplay.textContent = `Combo: ${rawComboCount}`;
+        }
+
+        // Update multiplier display and trigger pulsation
+        function updateMultiplierDisplay() {
+            multiplierDisplay.textContent = `${COMBO_MULTIPLIERS[currentComboLevel]}x`; // Show multiplier
+            const currentColor = COMBO_COLORS[currentComboLevel];
+            multiplierDisplay.style.color = currentColor;
+            multiplierDisplay.style.textShadow = `0 0 10px ${currentColor}80`;
+
+            multiplierDisplay.classList.remove('pulsate-combo');
+            void multiplierDisplay.offsetWidth;
+            multiplierDisplay.classList.add('pulsate-combo');
+        }
+
+        // Update level display
+        function updateLevelDisplay() {
+            levelDisplay.textContent = `Level: ${level}`;
+        }
+
+        // Increment combo
+        function incrementCombo() {
+            rawComboCount++; // Increment raw combo count
+            consecutiveHits++;
+
+            // Check if combo multiplier should increase
+            if (currentComboLevel < COMBO_MULTIPLIERS.length - 1 && consecutiveHits % COMBO_LEVEL_UP_HITS === 0) {
+                currentComboLevel++;
+                updateMultiplierDisplay(); // Update display for new multiplier
+            } else {
+                updateMultiplierDisplay(); // Still update to trigger pulse on every hit
+            }
+            updateRawComboDisplay(); // Update raw combo display
+        }
+
+        // Reset combo
+        function resetCombo() {
+            if (rawComboCount > 0 || consecutiveHits > 0) {
+                rawComboCount = 0; // Reset raw combo
+                consecutiveHits = 0;
+                currentComboLevel = 0;
+                updateRawComboDisplay(); // Update raw combo display
+                updateMultiplierDisplay(); // Update multiplier display
+                if (scratchSynth && typeof Tone !== 'undefined' && Tone.context.state === 'running') {
+                    // Added a small offset to Tone.now() to ensure strictly increasing time
+                    scratchSynth.triggerAttackRelease("C2", "0.2", Tone.now() + 0.0001);
+                }
+            }
+        }
+
+        // Calculate and update overall accuracy display
+        function getOverallAccuracy() {
+            if (totalNotesHit === 0) return 100;
+            const maxPossibleAccuracySum = totalNotesHit * 100;
+            return (totalAccuracySum / maxPossibleAccuracySum) * 100;
+        }
+
+        // Function to interpolate colors based on accuracy
+        function getAccuracyColor(accuracy) {
+            // Pink: R=255, G=0, B=127 (#ff007f) - for 100% accuracy
+            // Blue: R=0, G=255, B=255 (#00ffff) - for 0% accuracy
+            const pink = { r: 255, g: 0, b: 127 };
+            const blue = { r: 0, g: 255, b: 255 };
+
+            // Normalize accuracy to a factor between 0 (blue) and 1 (pink)
+            const factor = clamp(accuracy / 100, 0, 1);
+
+            const r = Math.round(blue.r * (1 - factor) + pink.r * factor);
+            const g = Math.round(blue.g * (1 - factor) + pink.g * factor);
+            const b = Math.round(blue.b * (1 - factor) + pink.b * factor);
+
+            return `rgb(${r}, ${g}, ${b})`;
+        }
 
 
-            // Add the element to the background container
-            backgroundAnimationContainer.appendChild(element);
+        function updateAccuracyDisplay() {
+            const currentAccuracy = getOverallAccuracy();
+            accuracyDisplay.textContent = `Accuracy: ${currentAccuracy.toFixed(2)}%`;
 
-            // Remove element after animation ends
-            element.addEventListener('animationend', () => {
-                element.remove();
+            const accuracyColor = getAccuracyColor(currentAccuracy);
+            accuracyDisplay.style.color = accuracyColor;
+            // Adjust border and shadow to use rgba with proper opacity for glow effect
+            accuracyDisplay.style.borderColor = accuracyColor.replace('rgb', 'rgba').replace(')', ', 0.6)');
+            accuracyDisplay.style.boxShadow = `0 0 15px ${accuracyColor.replace('rgb', 'rgba').replace(')', ', 0.4)')}`;
+        }
+
+        // Update game level based on time
+        function updateLevel(currentTime) {
+            if (currentTime - lastLevelUpTime > LEVEL_UP_DURATION) {
+                level++;
+                lastLevelUpTime = currentTime;
+                updateLevelDisplay();
+
+                // Decrease spawn interval as level increases (more frequent notes)
+                blockSpawnInterval = Math.max(MIN_SPAWN_INTERVAL, BASE_SPAWN_INTERVAL - (level * SPAWN_INTERVAL_DECREASE_PER_LEVEL));
+
+                console.log(`Level Up! New Level: ${level}, New Spawn Interval: ${blockSpawnInterval.toFixed(0)}ms`);
+            }
+        }
+
+
+        // Spawn a new block or chain or double note or bomb
+        function spawnBlock(timestamp) {
+            const currentNJS = BASE_NJS_VALUE + (level - 1) * NJS_PER_LEVEL_INCREASE;
+
+            // Base travel duration, will be modified for slow blocks
+            let blockTravelDuration = BASE_BLOCK_TRAVEL_DURATION / (currentNJS / BASE_NJS_VALUE);
+            const startY = -INITIAL_BLOCK_SIZE;
+
+            const spawnTypeRoll = Math.random();
+            let blockTypeToSpawn;
+
+            // Determine block type based on probabilities
+            if (spawnTypeRoll < SINGLE_NOTE_CHANCE) {
+                blockTypeToSpawn = 'single';
+            } else if (spawnTypeRoll < SINGLE_NOTE_CHANCE + DOUBLE_NOTE_CHANCE) {
+                blockTypeToSpawn = 'double';
+            } else if (spawnTypeRoll < SINGLE_NOTE_CHANCE + DOUBLE_NOTE_CHANCE + CHAIN_NOTE_CHANCE) {
+                blockTypeToSpawn = 'chain';
+            } else {
+                blockTypeToSpawn = 'slow'; // This is the new slow block
+            }
+
+            // Logic to ensure only one slow block is active
+            if (blockTypeToSpawn === 'slow' && activeSlowBlock !== null) {
+                // If a slow block is already active, revert to spawning a normal block type
+                const normalSpawnRoll = Math.random();
+                if (normalSpawnRoll < 0.5) { // 50% chance for single
+                    blockTypeToSpawn = 'single';
+                } else { // 50% chance for chain
+                    blockTypeToSpawn = 'chain';
+                }
+            }
+
+
+            if (blockTypeToSpawn === 'slow') {
+                // Slower falling speed: half the speed means twice the travel duration
+                blockTravelDuration *= SLOW_BLOCK_TRAVEL_FACTOR;
+                const randomContent = ALL_POSSIBLE_SLOW_KEYS[Math.floor(Math.random() * ALL_POSSIBLE_SLOW_KEYS.length)];
+
+                // Slow blocks appear in a single, central lane (or choose a random lane, for now central)
+                const randomLaneX = leftLaneCenters[Math.floor(LANE_COUNT_PER_SIDE / 2)];
+
+                const newSlowBlock = {
+                    x: randomLaneX,
+                    y: startY,
+                    size: INITIAL_BLOCK_SIZE,
+                    type: 'slow', // New type
+                    content: randomContent.toUpperCase(), // Store content (number/letter)
+                    hitTime: timestamp + blockTravelDuration,
+                    state: 'incoming', // Can be 'incoming', 'active', 'hit', 'missed'
+                    isSlicing: false,
+                    sliceProgress: 0,
+                    opacity: 1,
+                    isChain: false,
+                    isDouble: false,
+                    isBomb: false,
+                    bombProgress: 0,
+                    blockTravelDuration: blockTravelDuration
+                };
+                blocks.push(newSlowBlock);
+                activeSlowBlock = newSlowBlock; // Set the new slow block as the active one
+
+            } else if (blockTypeToSpawn === 'single') {
+                const laneType = Math.random() < 0.5 ? 'left' : 'right';
+                const isBomb = Math.random() < BOMB_INTEGRATION_CHANCE;
+
+                const xCenters = laneType === 'left' ? leftLaneCenters : rightLaneCenters;
+                const randomLaneX = xCenters[Math.floor(Math.random() * xCenters.length)];
+
+                blocks.push({
+                    x: randomLaneX,
+                    y: startY,
+                    size: INITIAL_BLOCK_SIZE,
+                    type: laneType, // Bomb's type MUST match its lane to get the correct base color
+                    hitTime: timestamp + blockTravelDuration,
+                    state: 'incoming',
+                    isSlicing: false,
+                    sliceProgress: 0,
+                    opacity: 1,
+                    isChain: false,
+                    isDouble: false,
+                    isBomb: isBomb,
+                    bombProgress: 0,
+                    blockTravelDuration: blockTravelDuration
+                });
+            } else if (blockTypeToSpawn === 'double') {
+                const currentDoubleId = doubleNoteCounter++;
+
+                blocks.push({
+                    x: leftLaneCenters[Math.floor(LANE_COUNT_PER_SIDE / 2)],
+                    y: startY,
+                    size: INITIAL_BLOCK_SIZE,
+                    type: 'left',
+                    hitTime: timestamp + blockTravelDuration,
+                    state: 'incoming',
+                    isSlicing: false,
+                    sliceProgress: 0,
+                    opacity: 1,
+                    isChain: false,
+                    isDouble: true,
+                    doubleId: currentDoubleId,
+                    isBomb: false,
+                    bombProgress: 0,
+                    blockTravelDuration: blockTravelDuration
+                });
+                blocks.push({
+                    x: rightLaneCenters[Math.floor(LANE_COUNT_PER_SIDE / 2)],
+                    y: startY,
+                    size: INITIAL_BLOCK_SIZE,
+                    type: 'right',
+                    hitTime: timestamp + blockTravelDuration,
+                    state: 'incoming',
+                    isSlicing: false,
+                    sliceProgress: 0,
+                    opacity: 1,
+                    isChain: false,
+                    isDouble: true,
+                    doubleId: currentDoubleId,
+                    isBomb: false,
+                    bombProgress: 0,
+                    blockTravelDuration: blockTravelDuration
+                });
+            } else if (blockTypeToSpawn === 'chain') {
+                const laneType = Math.random() < 0.5 ? 'left' : 'right';
+                const chainLength = Math.floor(Math.random() * (CHAIN_MAX_LENGTH - CHAIN_MIN_LENGTH + 1)) + CHAIN_MIN_LENGTH;
+
+                const xCenters = laneType === 'left' ? leftLaneCenters : rightLaneCenters;
+                const randomLaneX = xCenters[Math.floor(Math.random() * xCenters.length)];
+
+                for (let i = 0; i < chainLength; i++) {
+                    const isBomb = Math.random() < BOMB_INTEGRATION_CHANCE;
+                    blocks.push({
+                        x: randomLaneX,
+                        y: startY,
+                        size: INITIAL_BLOCK_SIZE,
+                        type: laneType, // Bomb's type MUST match its lane to get the correct base color
+                        hitTime: timestamp + blockTravelDuration + (i * CHAIN_OFFSET_TIME),
+                        state: 'incoming',
+                        isSlicing: false,
+                        sliceProgress: 0,
+                        opacity: 1,
+                        isChain: true,
+                        chainOrder: i,
+                        chainLength: chainLength,
+                        isDouble: false,
+                        isBomb: isBomb,
+                        bombProgress: 0,
+                        blockTravelDuration: blockTravelDuration
+                    });
+                }
+            }
+        }
+
+        // Update block positions, sizes, and states
+        function updateBlocks(deltaTime, currentTime) {
+            for (let i = blocks.length - 1; i >= 0; i--) {
+                const block = blocks[i];
+
+                // If block is already slicing, continue its animation until it disappears
+                if (block.isSlicing) {
+                    block.sliceProgress += deltaTime / 150;
+                    block.opacity = 1 - block.sliceProgress;
+                    if (block.opacity <= 0) {
+                        if (block.type === 'slow' && block === activeSlowBlock) {
+                            activeSlowBlock = null; // Clear active slow block reference
+                        }
+                        blocks.splice(i, 1);
+                    }
+                    continue;
+                }
+
+                // Calculate current Y position
+                const progress = (currentTime - (block.hitTime - block.blockTravelDuration)) / block.blockTravelDuration;
+                block.y = -INITIAL_BLOCK_SIZE + (TARGET_Y + INITIAL_BLOCK_SIZE) * progress;
+
+                // Update bomb visual progress
+                if (block.isBomb) {
+                    const appearanceStartProgress = 0.5;
+                    const appearanceEndProgress = 0.9;
+                    const currentVisualProgress = (block.y - (-INITIAL_BLOCK_SIZE)) / (TARGET_Y + INITIAL_BLOCK_SIZE);
+                    block.bombProgress = clamp((currentVisualProgress - appearanceStartProgress) / (appearanceEndProgress - appearanceStartProgress), 0, 1);
+                }
+
+                // For slow blocks, transition state to 'active' once visible
+                if (block.type === 'slow' && block.state === 'incoming' && block.y > -INITIAL_BLOCK_SIZE) {
+                    block.state = 'active';
+                }
+
+                // Check for misses (applies to all block types)
+                if (block.state === 'incoming' || block.state === 'active') { // Check both incoming and active states for miss
+                    const missWindowEnd = block.hitTime + HIT_PRECISION_WINDOW / 2;
+                    if (block.type === 'slow') {
+                        // Slow blocks miss if they pass the entire canvas height
+                        if (block.y > CANVAS_HEIGHT) {
+                            health -= HEALTH_LOSS_PER_MISS;
+                            updateHealthBar();
+                            resetCombo();
+                            createParticles(block.x, block.y, 'miss');
+                            createPopup(block.x, block.y, `MISS!`, '#ff007f'); // Miss for slow block
+                            block.isSlicing = true; // Make it disappear after missing
+                            activeSlowBlock = null; // Clear active slow block reference on miss
+                            console.log("SLOW BLOCK MISSED (passed screen): Health reduced, combo reset.");
+                        }
+                    } else { // Normal, double, chain, bomb blocks
+                        if (currentTime > missWindowEnd) {
+                            if (block.isBomb) {
+                                health = clamp(health + HEALTH_GAIN_ON_BOMB_MISS, 0, MAX_HEALTH);
+                                updateHealthBar();
+                                createParticles(block.x, TARGET_Y, 'health_gain');
+                                createPopup(block.x, block.y, `+${HEALTH_GAIN_ON_BOMB_MISS} Health!`, '#00ff00');
+                                block.isSlicing = true;
+                                console.log("BOMB MISSED (passed line): Health gained.");
+                            } else {
+                                health -= HEALTH_LOSS_PER_MISS;
+                                updateHealthBar();
+                                resetCombo();
+                                createParticles(block.x, TARGET_Y, 'miss');
+                                block.isSlicing = true;
+                                // Added a small offset to Tone.now() to ensure strictly increasing time
+                                if (hiHatSynth && typeof Tone !== 'undefined' && Tone.context.state === 'running') hiHatSynth.triggerAttackRelease("16n", Tone.now() + 0.0002);
+                                totalNotesHit++;
+                                updateAccuracyDisplay();
+                                console.log("NOTE MISSED (passed line): Health reduced, combo reset.");
+
+                                if (block.isDouble && block.doubleId !== undefined) {
+                                    const pairedBlock = blocks.find(b => b.doubleId === block.doubleId && b !== block && (b.state === 'incoming' || b.state === 'active'));
+                                    if (pairedBlock) {
+                                        pairedBlock.isSlicing = true;
+                                        pairedBlock.state = 'missed';
+                                        totalNotesHit++;
+                                        updateAccuracyDisplay();
+                                        console.log("PAIRED DOUBLE NOTE MISSED (passed line).");
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Handle key presses for individual hits
+        function handleKeyPress(event) {
+            if (!gameActive || awaitingKeybind) return;
+
+            const keyPressed = event.key.toLowerCase();
+            const currentTime = performance.now();
+            if (currentTime === null || currentTime === undefined) {
+                console.error("Time source returned invalid time, skipping key press handler.");
+                return;
+            }
+
+            let slowBlockHandled = false;
+            let normalBlockHandled = false;
+
+            // 1. Prioritize handling the SINGLE active Slow Block
+            if (activeSlowBlock && activeSlowBlock.state === 'active' && !activeSlowBlock.isSlicing) {
+                if (keyPressed === activeSlowBlock.content.toLowerCase()) {
+                    // Correct key for slow block
+                    activeSlowBlock.state = 'hit';
+                    activeSlowBlock.isSlicing = true; // Start slicing animation
+                    const basePointsGained = 115; // Always max points for slow block
+                    score += Math.round(basePointsGained * COMBO_MULTIPLIERS[currentComboLevel]);
+                    updateScoreDisplay();
+                    health = clamp(health + HEALTH_REGEN_PER_HIT, 0, MAX_HEALTH);
+                    updateHealthBar();
+                    incrementCombo();
+                    createParticles(activeSlowBlock.x, activeSlowBlock.y, 'health_gain'); // Greenish particles for slow hit
+                    createPopup(activeSlowBlock.x, activeSlowBlock.y, `+${Math.round(basePointsGained * COMBO_MULTIPLIERS[currentComboLevel])} PERFECT!`, '#00ffcc');
+                    // Added a small offset to Tone.now() to ensure strictly increasing time
+                    if (kickSynth && typeof Tone !== 'undefined' && Tone.context.state === 'running') kickSynth.triggerAttackRelease("G4", "0.1", Tone.now() + 0.0003);
+                    activeSlowBlock = null; // Clear the reference as it's handled
+                    slowBlockHandled = true;
+                } else if (ALL_POSSIBLE_SLOW_KEYS.includes(keyPressed) && keyPressed !== keybinds['left'] && keyPressed !== keybinds['right']) {
+                    // Pressed a key that's meant for slow blocks, but it's the wrong key for *this* slow block.
+                    // Also ensures it's NOT a normal lane key.
+                    health -= HEALTH_LOSS_PER_MISS; // Deduct health
+                    updateHealthBar();
+                    resetCombo(); // Reset combo on wrong key
+                    createParticles(activeSlowBlock.x, activeSlowBlock.y, 'miss');
+                    createPopup(activeSlowBlock.x, activeSlowBlock.y, `- Health (Wrong Key)!`, '#ff007f');
+                    // Added a small offset to Tone.now() to ensure strictly increasing time
+                    if (hiHatSynth && typeof Tone !== 'undefined' && Tone.context.state === 'running') hiHatSynth.triggerAttackRelease("16n", Tone.now() + 0.0004);
+                    // Block does NOT get sliced, it remains to be hit correctly
+                    slowBlockHandled = true; // This keypress was an attempt at a slow block
+                }
+            }
+
+            if (slowBlockHandled) {
+                return; // If a slow block was successfully hit OR an incorrect slow key was pressed, stop here.
+            }
+
+            // 2. Handle Normal Blocks (if no relevant slow block interaction occurred)
+            let bestNormalBlock = null;
+            let minNormalTimeDiff = Infinity;
+
+            if (keyPressed === keybinds['left'] || keyPressed === keybinds['right']) {
+                // It's a lane key, now find the best normal block to hit
+                for (let i = blocks.length - 1; i >= 0; i--) {
+                    const block = blocks[i];
+                    // Only consider normal blocks (not slow blocks), incoming, and not slicing
+                    if (block.type !== 'slow' && block.state === 'incoming' && !block.isSlicing) {
+                        const hitWindowStart = block.hitTime - HIT_PRECISION_WINDOW / 2;
+                        const hitWindowEnd = block.hitTime + HIT_PRECISION_WINDOW / 2;
+
+                        if (currentTime >= hitWindowStart && currentTime <= hitWindowEnd) {
+                            let isKeyCorrect = false;
+                            if (block.type === 'left' && keyPressed === keybinds['left']) {
+                                isKeyCorrect = true;
+                            } else if (block.type === 'right' && keyPressed === keybinds['right']) {
+                                isKeyCorrect = true;
+                            } else if (block.isBomb && (keyPressed === keybinds['left'] || keyPressed === keybinds['right'])) {
+                                isKeyCorrect = true; // Hitting bomb with any lane key
+                            }
+
+                            if (isKeyCorrect) {
+                                const timeDiff = Math.abs(currentTime - block.hitTime);
+                                if (timeDiff < minNormalTimeDiff) {
+                                    minNormalTimeDiff = timeDiff;
+                                    bestNormalBlock = block;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (bestNormalBlock) {
+                normalBlockHandled = true;
+                const processedBlock = bestNormalBlock;
+                if (processedBlock.isBomb) {
+                    health -= HEALTH_LOSS_ON_BOMB_HIT;
+                    updateHealthBar();
+                    resetCombo();
+                    createParticles(processedBlock.x, processedBlock.y, 'bomb_hit');
+                    createPopup(processedBlock.x, processedBlock.y, `-${HEALTH_LOSS_ON_BOMB_HIT} Health!`, '#ff007f');
+                    processedBlock.isSlicing = true;
+                    // Added a small offset to Tone.now() to ensure strictly increasing time
+                    if (hiHatSynth && typeof Tone !== 'undefined' && Tone.context.state === 'running') hiHatSynth.triggerAttackRelease("16n", Tone.now() + 0.0005);
+                } else {
+                    processedBlock.state = 'hit';
+                    const timeDiff = Math.abs(currentTime - processedBlock.hitTime);
+                    const accuracyPercentage = clamp((1 - (timeDiff / (HIT_PRECISION_WINDOW / 2))) * 100, 0, 100);
+
+                    totalNotesHit++;
+                    totalAccuracySum += accuracyPercentage;
+                    updateAccuracyDisplay();
+
+                    const basePointsGained = MIN_ACCURACY_POINTS_PER_NOTE +
+                                             (MAX_ACCURACY_POINTS_PER_NOTE - MIN_ACCURACY_POINTS_PER_NOTE) * (accuracyPercentage / 100);
+                    score += Math.round(basePointsGained * COMBO_MULTIPLIERS[currentComboLevel]);
+                    updateScoreDisplay();
+
+                    health = clamp(health + HEALTH_REGEN_PER_HIT, 0, MAX_HEALTH);
+                    updateHealthBar();
+
+                    incrementCombo();
+                    createParticles(processedBlock.x, processedBlock.y, processedBlock.type);
+                    createPopup(processedBlock.x, processedBlock.y, `+${Math.round(basePointsGained * COMBO_MULTIPLIERS[currentComboLevel])} (${accuracyPercentage.toFixed(0)}%)`, blockColors[processedBlock.type]);
+                    processedBlock.isSlicing = true;
+                    // Added a small offset to Tone.now() to ensure strictly increasing time
+                    if (kickSynth && typeof Tone !== 'undefined' && Tone.context.state === 'running') kickSynth.triggerAttackRelease("C2", "0.1", Tone.now() + 0.0006);
+                }
+            }
+
+            // 3. Generic Miss (if a lane key was pressed but no block was hit)
+            // This happens only if no slow block interaction occurred AND no normal block was hit
+            if (!slowBlockHandled && !normalBlockHandled && (keyPressed === keybinds['left'] || keyPressed === keybinds['right'])) {
+                health -= HEALTH_LOSS_PER_MISS;
+                updateHealthBar();
+                resetCombo();
+                createParticles(CANVAS_WIDTH / 2, TARGET_Y, 'miss');
+                // Added a small offset to Tone.now() to ensure strictly increasing time
+                if (hiHatSynth && typeof Tone !== 'undefined' && Tone.context.state === 'running') hiHatSynth.triggerAttackRelease("16n", Tone.now() + 0.0007);
+            }
+        }
+
+        // Create particles for visual effects
+        function createParticles(x, y, type) {
+            const color = type === 'left' ? blockColors['left'] :
+                          type === 'right' ? blockColors['right'] :
+                          type === 'miss' ? '#ff007f' : // Miss particles are pink
+                          type === 'health_gain' ? '#00ffcc' : // Health gain particles are cyan
+                          type === 'bomb_hit' ? '#ff4500' : // Bomb hit particles are orange
+                          '#ffffff';
+            for (let i = 0; i < PARTICLE_COUNT_ON_HIT; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * 5 + 2;
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    radius: Math.random() * 5 + 2,
+                    color: color,
+                    opacity: 1,
+                    life: PARTICLE_LIFETIME
+                });
+            }
+        }
+
+        // Update and remove particles
+        function updateParticles(deltaTime) {
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.life -= deltaTime;
+                p.opacity = clamp(p.life / PARTICLE_LIFETIME, 0, 1);
+                p.radius = clamp(p.radius * (p.life / PARTICLE_LIFETIME), 0.5, 10);
+
+                if (p.life <= 0) {
+                    particles.splice(i, 1);
+                }
+            }
+        }
+
+        // Create a floating score/accuracy popup
+        function createPopup(x, y, text, color) {
+            popups.push({
+                x: x,
+                y: y,
+                text: text,
+                color: color,
+                opacity: 1,
+                life: POPUP_LIFETIME
+            });
+        }
+
+        // Update and remove popups
+        function updatePopups(deltaTime) {
+            for (let i = popups.length - 1; i >= 0; i--) {
+                const popup = popups[i];
+                popup.y -= POPUP_MOVE_SPEED * deltaTime;
+                popup.life -= deltaTime;
+                popup.opacity = clamp(popup.life / POPUP_LIFETIME, 0, 1);
+
+                if (popup.life <= 0) {
+                    popups.splice(i, 1);
+                }
+            }
+        }
+
+
+        // --- Drawing Functions ---
+
+        // Draw game elements
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Apply filter if a slow block is active
+            if (activeSlowBlock && activeSlowBlock.state === 'active' && !activeSlowBlock.isSlicing) {
+                ctx.filter = 'blur(1px)'; // Apply blur to everything else
+            } else {
+                ctx.filter = 'none'; // No blur
+            }
+
+            // Draw pulsating target line (will be blurred if activeSlowBlock exists)
+            const pulseFactor = Math.sin(performance.now() / 200) * 0.1 + 1;
+            const gradientLine = ctx.createLinearGradient(0, 0, CANVAS_WIDTH, 0);
+            gradientLine.addColorStop(0, `rgba(0, 255, 255, ${0.3 * pulseFactor})`);
+            gradientLine.addColorStop(0.5, `rgba(255, 0, 255, ${0.8 * pulseFactor})`);
+            gradientLine.addColorStop(1, `rgba(0, 255, 255, ${0.3 * pulseFactor})`);
+            ctx.strokeStyle = gradientLine;
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(0, TARGET_Y);
+            ctx.lineTo(CANVAS_WIDTH, TARGET_Y);
+            ctx.stroke();
+
+            // Store drawn double notes to prevent drawing cable twice
+            const drawnDoubleNotes = new Set();
+
+            // Draw all blocks *except* the active slow block if it exists and needs focus
+            blocks.filter(block => {
+                // If there's an activeSlowBlock, and this block IS that activeSlowBlock, exclude it from this first draw pass
+                return !(block.type === 'slow' && block === activeSlowBlock && block.state === 'active' && !block.isSlicing);
+            }).forEach(block => {
+                ctx.save();
+                ctx.translate(block.x, block.y);
+
+                const halfSize = block.size / 2;
+                const radius = halfSize * 0.2;
+
+                // Determine block color for gradient
+                let blockColor;
+                if (block.type === 'slow') {
+                    blockColor = blockColors['left']; // Slow blocks always use left color
+                } else {
+                    blockColor = blockColors[block.type]; // Normal blocks (including bombs) use their type's color
+                }
+
+                const gradient = ctx.createLinearGradient(-halfSize, -halfSize, halfSize, halfSize);
+                gradient.addColorStop(0, `${blockColor}80`);
+                gradient.addColorStop(0.5, blockColor);
+                gradient.addColorStop(1, `${blockColor}80`);
+
+                ctx.fillStyle = gradient;
+                ctx.shadowColor = blockColor;
+                ctx.shadowBlur = block.size * 0.3;
+
+                ctx.globalAlpha = block.opacity;
+
+                roundRect(ctx, -halfSize, -halfSize, block.size, block.size, radius);
+                ctx.fill();
+
+                if (block.isBomb) {
+                    ctx.save();
+                    ctx.lineWidth = 5;
+                    // Cross color is opposite of the block's base color
+                    const crossColor = block.type === 'left' ? blockColors['right'] : blockColors['left'];
+                    ctx.strokeStyle = crossColor;
+                    ctx.lineCap = 'round';
+                    ctx.shadowColor = crossColor;
+                    ctx.shadowBlur = 10;
+                    ctx.globalAlpha = block.bombProgress * block.opacity;
+
+                    const xOffset = halfSize * 0.6;
+                    const yOffset = halfSize * 0.6;
+
+                    ctx.beginPath();
+                    ctx.moveTo(-xOffset, -yOffset);
+                    ctx.lineTo(xOffset, yOffset);
+                    ctx.moveTo(xOffset, -yOffset);
+                    ctx.lineTo(-xOffset, yOffset);
+                    ctx.stroke();
+                    ctx.restore();
+                } else if (block.type === 'slow' && block.isSlicing) {
+                    // Draw content (number/letter) for slicing slow block (will be blurred)
+                    ctx.fillStyle = blockColors['right']; // Opposite color for text
+                    ctx.font = `bold ${block.size * 0.6}px Inter`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.shadowColor = 'rgba(0,0,0,0.5)';
+                    ctx.shadowBlur = 5;
+                    ctx.fillText(block.content, 0, 0);
+                }
+
+                ctx.globalAlpha = 1;
+                ctx.restore();
             });
 
+            // Draw particles (will be blurred if activeSlowBlock exists)
+            particles.forEach(p => {
+                ctx.fillStyle = p.color;
+                ctx.globalAlpha = p.opacity;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.globalAlpha = 1;
+            });
+
+            // Draw popups (will be blurred if activeSlowBlock exists)
+            popups.forEach(popup => {
+                ctx.save();
+                ctx.globalAlpha = popup.opacity;
+                ctx.fillStyle = popup.color;
+                ctx.font = 'bold 20px Inter';
+                ctx.textAlign = 'center';
+                ctx.shadowColor = 'rgba(0,0,0,0.5)';
+                ctx.shadowBlur = 5;
+                ctx.fillText(popup.text, popup.x, popup.y);
+                ctx.restore();
+            });
+
+            // Reset filter to none BEFORE drawing the focused slow block
+            ctx.filter = 'none';
+
+            // Draw the active slow block (if it exists and is active/not slicing)
+            if (activeSlowBlock && activeSlowBlock.state === 'active' && !activeSlowBlock.isSlicing) {
+                const block = activeSlowBlock;
+                ctx.save();
+                ctx.translate(block.x, block.y);
+
+                const halfSize = block.size / 2;
+                const radius = halfSize * 0.2;
+
+                const blockColor = blockColors['left']; // Slow block color is always left block color
+                const gradient = ctx.createLinearGradient(-halfSize, -halfSize, halfSize, halfSize);
+                gradient.addColorStop(0, `${blockColor}80`);
+                gradient.addColorStop(0.5, blockColor);
+                gradient.addColorStop(1, `${blockColor}80`);
+
+                ctx.fillStyle = gradient;
+                ctx.shadowColor = blockColor;
+                ctx.shadowBlur = block.size * 0.3;
+                ctx.globalAlpha = block.opacity;
+
+                roundRect(ctx, -halfSize, -halfSize, block.size, block.size, radius);
+                ctx.fill();
+
+                // Draw content (number/letter) for the FOCUSED slow block
+                ctx.fillStyle = blockColors['right']; // Opposite color for text
+                ctx.font = `bold ${block.size * 0.6}px Inter`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.shadowColor = 'rgba(0,0,0,0.5)';
+                ctx.shadowBlur = 5;
+                ctx.fillText(block.content, 0, 0);
+
+                ctx.globalAlpha = 1;
+                ctx.restore();
+            }
         }
 
-        // Function to start the chip background animation
-        function startChipAnimation() {
-             // Create initial background elements
-             const numberOfElements = 30;
-             for (let i = 0; i < numberOfElements; i++) {
-                  createBackgroundElement();
-             }
+        // Main game loop
+        let lastTime = 0;
+        function gameLoop(currentTime) {
+            const deltaTime = currentTime - lastTime;
+            lastTime = currentTime;
 
-             // Periodically add more elements
-             chipSpawningInterval = setInterval(() => {
-                  createBackgroundElement();
-             }, 400);
+            if (gameActive) {
+                // Update game level based on time
+                updateLevel(currentTime);
+
+                // Calculate current NJS and corresponding block travel duration
+                const currentNJS = BASE_NJS_VALUE + (level - 1) * NJS_PER_LEVEL_INCREASE;
+                const blockTravelDurationForNormal = BASE_BLOCK_TRAVEL_DURATION / (currentNJS / BASE_NJS_VALUE);
+
+                if (currentTime - lastBlockSpawnTime > blockSpawnInterval) {
+                    spawnBlock(currentTime);
+                    lastBlockSpawnTime = currentTime;
+                }
+
+                updateBlocks(deltaTime, currentTime);
+                updateParticles(deltaTime);
+                updatePopups(deltaTime);
+                draw();
+            }
+
+            animationFrameId = requestAnimationFrame(gameLoop);
         }
 
-        // Function to stop the chip background animation and remove elements
-        function stopChipAnimation() {
-            clearInterval(chipSpawningInterval); // Stop the interval
-            chipSpawningInterval = null; // Reset the variable
-
-            // Remove all existing background elements
-            const elements = backgroundAnimationContainer.querySelectorAll('.bg-element');
-            elements.forEach(element => element.remove());
+        // --- Leaderboard Functions ---
+        // This function now exclusively loads from local storage, for fallback or if user prefers local
+        function loadLeaderboardFromLocalStorage() {
+            const savedScores = localStorage.getItem('rhythmSlicerLeaderboard');
+            return savedScores ? JSON.parse(savedScores) : [];
         }
 
+        async function saveScoreToLocalStorage(score, accuracy, initials) {
+             const leaderboard = loadLeaderboardFromLocalStorage();
+            const newEntry = {
+                score: score,
+                accuracy: parseFloat(accuracy.toFixed(2)),
+                date: new Date().toLocaleString(),
+                level: level, // Save the level achieved
+                username: initials || "AAA" // Use initials or default
+            };
 
-        // Add click event listener to the Check Key button
-        checkKeyButton.addEventListener('click', () => {
-            const enteredKey = keyInput.value; // Get the value from the input field
-
-            // Clear previous message and classes
-            keyMessage.textContent = '';
-            keyMessage.classList.remove('show', 'correct', 'incorrect');
-
-            if (enteredKey === correctKey) {
-                // Correct key entered
-                keyMessage.textContent = 'Key accepted! Accessing Hub...';
-                keyMessage.classList.add('show', 'correct');
-
-                // Hide key system and show main hub after a short delay
-                setTimeout(() => {
-                    keySystemSection.classList.add('hidden');
-                    mainHubSection.classList.remove('hidden');
-                    startChipAnimation(); // Start the chip animation for the main hub
-                }, 1000); // Switch after 1 second
-
+            // Check if the new score should be added
+            if (leaderboard.length < 10) {
+                leaderboard.push(newEntry);
             } else {
-                // Incorrect key entered
-                keyMessage.textContent = 'Incorrect key. Please try again.';
-                keyMessage.classList.add('show', 'incorrect');
-                 // Optional: Hide the message after a few seconds
-                 setTimeout(() => {
-                      keyMessage.classList.remove('show');
-                 }, 3000); // Hide after 3 seconds
+                // If leaderboard is full, check if new score is higher than the lowest score
+                const lowestScore = leaderboard[leaderboard.length - 1].score;
+                if (newEntry.score > lowestScore) {
+                    leaderboard.pop(); // Remove the lowest score
+                    leaderboard.push(newEntry); // Add the new higher score
+                }
+            }
+
+            // Client-side sort to ensure consistent order for local storage
+            leaderboard.sort((a, b) => {
+                if (b.score !== a.score) return b.score - a.score;
+                if (b.accuracy !== a.accuracy) return b.accuracy - a.accuracy;
+                return new Date(b.date).getTime() - new Date(a.date).getTime();
+            });
+            const topScores = leaderboard.slice(0, 10); // Ensure only top 10 are kept after sorting
+            localStorage.setItem('rhythmSlicerLeaderboard', JSON.stringify(topScores));
+            console.log("Score saved to local storage:", newEntry);
+        }
+
+        async function saveScore(score, accuracy, userInitials) {
+            if (!db || !isAuthReady) {
+                console.warn("Firebase is not ready. Score will only be saved to local storage.");
+                saveScoreToLocalStorage(score, accuracy, userInitials);
+                return;
+            }
+
+            const initialsToUse = userInitials ? userInitials.toUpperCase() : "AAA"; // Ensure uppercase and default
+
+            const newEntry = {
+                score: score,
+                accuracy: parseFloat(accuracy.toFixed(2)),
+                level: level,
+                userId: userId, // Current anonymous user ID
+                username: initialsToUse, // Use the provided initials as username
+                timestamp: serverTimestamp() // Use server timestamp for consistent ordering
+            };
+
+            const leaderboardRef = collection(db, `artifacts/${appId}/public/data/leaderboard`);
+
+            try {
+                // First, check the current top 10 scores
+                const q = query(leaderboardRef, orderBy("score", "desc"), limit(10));
+                const querySnapshot = await getDocs(q);
+                const currentScores = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+                let shouldAdd = false;
+                let lowestScoreId = null;
+                let lowestScoreEntry = null;
+
+                if (currentScores.length < 10) {
+                    shouldAdd = true;
+                } else {
+                    currentScores.sort((a, b) => {
+                        if (a.score !== b.score) return a.score - b.score; // Ascending score for finding lowest
+                        const timestampA = a.timestamp ? a.timestamp.toDate().getTime() : 0;
+                        const timestampB = b.timestamp ? b.timestamp.toDate().getTime() : 0;
+                        return timestampA - timestampB;
+                    });
+                    lowestScoreEntry = currentScores[0];
+                    if (newEntry.score > lowestScoreEntry.score) {
+                        shouldAdd = true;
+                        lowestScoreId = lowestScoreEntry.id;
+                    } else if (newEntry.score === lowestScoreEntry.score && newEntry.accuracy > lowestScoreEntry.accuracy) {
+                        shouldAdd = true;
+                        lowestScoreId = lowestScoreEntry.id;
+                    }
+                }
+
+                if (shouldAdd) {
+                    if (lowestScoreId) {
+                        await deleteDoc(doc(db, `artifacts/${appId}/public/data/leaderboard`, lowestScoreId));
+                        console.log(`Removed lowest score ${lowestScoreEntry.score} (ID: ${lowestScoreId}) from leaderboard.`);
+                    }
+                    await addDoc(leaderboardRef, newEntry);
+                    console.log("Score saved to Firestore:", newEntry);
+                } else {
+                    console.log("Score not high enough to be added to global leaderboard.");
+                }
+            } catch (e) {
+                console.error("Error saving score to Firestore:", e);
+                // The score is already saved locally if Firestore save fails
+            }
+        }
+
+        // This function sets up a real-time listener for the global leaderboard
+        function setupLeaderboardListener() {
+            if (!db) {
+                console.warn("Firestore not initialized for leaderboard listener.");
+                leaderboardLoading.textContent = 'Leaderboard not available (Firebase not initialized).';
+                // Render local scores as a fallback immediately
+                renderLeaderboard(loadLeaderboardFromLocalStorage());
+                return;
+            }
+
+            const leaderboardRef = collection(db, `artifacts/${appId}/public/data/leaderboard`);
+            const q = query(leaderboardRef, orderBy("score", "desc"), limit(10));
+
+            onSnapshot(q, (snapshot) => {
+                console.log("Leaderboard update received from Firestore.");
+                const leaderboard = [];
+                snapshot.forEach((doc) => {
+                    const data = doc.data();
+                    leaderboard.push({
+                        id: doc.id,
+                        score: data.score,
+                        accuracy: data.accuracy,
+                        level: data.level,
+                        // userId: data.userId, // Can remove if not needed for display
+                        username: data.username || 'AAA', // Get username (initials), fallback to AAA
+                        date: data.timestamp ? new Date(data.timestamp.toDate()).toLocaleString() : 'N/A' // Convert timestamp
+                    });
+                });
+
+                // Client-side sort to ensure correct ordering by score, then accuracy, then date
+                leaderboard.sort((a, b) => {
+                    if (b.score !== a.score) return b.score - a.score;
+                    // Secondary sort for accuracy (higher accuracy first)
+                    if (b.accuracy !== a.accuracy) return b.accuracy - a.accuracy;
+                    // Tertiary sort by date (newer dates first) for ties
+                    const dateA = a.date !== 'N/A' ? new Date(a.date).getTime() : 0;
+                    const dateB = b.date !== 'N/A' ? new Date(b.date).getTime() : 0;
+                    return dateB - dateA;
+                });
+
+                renderLeaderboard(leaderboard); // Render the fetched and sorted data
+                leaderboardLoading.style.display = 'none'; // Hide loading indicator
+            }, (error) => {
+                console.error("Error fetching leaderboard from Firestore:", error);
+                leaderboardLoading.textContent = 'Error loading global leaderboard. Displaying local scores.';
+                // Fallback to local storage display if Firestore fails
+                renderLeaderboard(loadLeaderboardFromLocalStorage());
+            });
+        }
+
+        // Function to render the leaderboard to the DOM
+        function renderLeaderboard(leaderboardData) {
+            leaderboardList.innerHTML = '';
+
+            if (leaderboardData.length === 0) {
+                leaderboardList.innerHTML = '<p class="text-center text-gray-400">No scores yet! Play a game to get on the leaderboard.</p>';
+                return;
+            }
+
+            leaderboardData.forEach((entry, index) => {
+                const entryDiv = document.createElement('div');
+                entryDiv.classList.add('leaderboard-entry');
+
+                // Display username (initials)
+                const displayUserName = entry.username;
+                entryDiv.innerHTML = `
+                    <span>${index + 1}. Score: ${entry.score} (Lvl ${entry.level})</span>
+                    <span>Acc: ${entry.accuracy}%</span>
+                    <span class="text-xs text-gray-500 ml-2">Initials: ${displayUserName}</span>
+                `;
+                leaderboardList.appendChild(entryDiv);
+            });
+        }
+
+
+        // --- Firebase Initialization (Modified for Anonymous Auth) ---
+        async function initializeFirebase() {
+            if (!firebaseConfig.apiKey || firebaseConfig.apiKey === "YOUR_API_KEY" || !firebaseConfig.projectId) {
+                console.warn("Firebase config is not set correctly. Please paste your actual Firebase config (especially API Key and Project ID) in the script. Features relying on Firestore will not work.");
+                userId = crypto.randomUUID(); // Assign a temporary ID for local use
+                username = "Guest";
+                isAuthReady = true;
+                setupLeaderboardListener(); // Still call, it will fallback to local storage
+                return;
+            }
+
+            try {
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                onAuthStateChanged(auth, async (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        username = "Anonymous"; // No display name for anonymous users by default
+                        console.log("Firebase user state changed: Logged in anonymously.");
+                    } else {
+                        // If no user, sign in anonymously
+                        try {
+                            const anonymousUserCredential = await signInAnonymously(auth);
+                            userId = anonymousUserCredential.user.uid;
+                            username = "Anonymous";
+                            console.log("Firebase anonymous sign-in successful.");
+                        } catch (anonError) {
+                            console.error("Error signing in anonymously:", anonError);
+                            userId = crypto.randomUUID(); // Fallback to random ID if anonymous sign-in fails
+                            username = "Guest";
+                        }
+                    }
+                    isAuthReady = true;
+                    // Start listening to leaderboard updates only after auth is ready
+                    setupLeaderboardListener();
+                });
+            } catch (error) {
+                console.error("Error initializing Firebase:", error);
+                userId = crypto.randomUUID(); // Fallback to random ID if Firebase init fails
+                username = "Guest";
+                isAuthReady = true; // Mark as ready to allow game to proceed
+            }
+        }
+
+
+        // --- Event Listeners ---
+        window.addEventListener('load', () => {
+            initCanvas();
+            startScreen.style.display = 'flex'; // Show main menu initially
+            gameContainer.style.display = 'none'; // Hide game container initially
+            leaderboardScreen.style.display = 'none'; // Hide leaderboard screen initially
+
+            // Load saved settings
+            const savedKeybinds = JSON.parse(localStorage.getItem('keybinds'));
+            if (savedKeybinds) {
+                keybinds = savedKeybinds;
+                // Re-initialize ALL_POSSIBLE_SLOW_KEYS after loading keybinds
+                ALL_POSSIBLE_SLOW_KEYS.length = 0; // Clear existing
+                Array.from({length: 26}, (_, i) => String.fromCharCode(97 + i)) // a-z
+                    .concat(Array.from({length: 10}, (_, i) => String.fromCharCode(48 + i))) // 0-9
+                    .filter(key => key !== keybinds['left'] && key !== keybinds['right'])
+                    .forEach(key => ALL_POSSIBLE_SLOW_KEYS.push(key));
+            }
+
+            const savedColors = JSON.parse(localStorage.getItem('blockColors'));
+            if (savedColors) blockColors = savedColors;
+            const savedMusicUrl = localStorage.getItem('musicUrl');
+            if (savedMusicUrl) musicUrlInput.value = savedMusicUrl;
+
+            // Update UI with loaded settings
+            leftKeyDisplay.textContent = keybinds['left'].toUpperCase();
+            rightKeyDisplay.textContent = keybinds['right'].toUpperCase();
+            leftColorPicker.value = blockColors['left'];
+            rightColorPicker.value = blockColors['right'];
+            if (musicUrlInput.value) {
+                backgroundMusic.src = musicUrlInput.value;
+            }
+
+            // Initially show controls section
+            showSettingsSection('controls');
+
+            // Initialize Firebase here (will sign in anonymously)
+            initializeFirebase();
+        });
+
+        startGameBtn.addEventListener('click', () => {
+            if (typeof Tone !== 'undefined' && Tone.context.state !== 'running') {
+                Tone.start().then(() => {
+                    console.log("Tone.js AudioContext started successfully.");
+                    setupAudioSynths();
+                    resetGame();
+                }).catch(e => {
+                    console.error("Error starting Tone.js AudioContext:", e);
+                    resetGame();
+                });
+            } else {
+                setupAudioSynths();
+                resetGame();
             }
         });
 
-        // Add hover sound effect to buttons
-        const actionButtons = document.querySelectorAll('.action-button');
-        actionButtons.forEach(button => {
-             button.addEventListener('mouseenter', () => {
-                 if (hoverSound.readyState >= 2) {
-                      hoverSound.currentTime = 0;
-                      hoverSound.play().catch(e => console.error("Hover sound play failed:", e));
-                 }
-             });
+        restartGameBtn.addEventListener('click', () => {
+            if (typeof Tone !== 'undefined' && Tone.context.state !== 'running') {
+                Tone.start().then(() => {
+                    console.log("Tone.js AudioContext started successfully on restart.");
+                    setupAudioSynths();
+                    resetGame();
+                }).catch(e => {
+                    console.error("Error starting Tone.js AudioContext on restart:", e);
+                    resetGame();
+                });
+            } else {
+                setupAudioSynths();
+                resetGame();
+            }
         });
 
-        // Initially, the key system is visible, so do NOT start the chip animation here.
-        // The chip animation will be started when the main hub is shown.
+        // Event listener for Options button on main menu
+        mainMenuOptionsBtn.addEventListener('click', openSettings);
 
+        // Event listener for Return to Main Menu from game over screen
+        gameOverReturnToMainBtn.addEventListener('click', () => {
+            gameOverScreen.style.display = 'none';
+            startScreen.style.display = 'flex';
+            gameActive = false; // Ensure game is not active
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+            }
+            backgroundMusic.pause();
+            backgroundMusic.currentTime = 0;
+        });
+
+        // Event listeners for Leaderboard buttons
+        leaderboardButtonMain.addEventListener('click', () => {
+            startScreen.style.display = 'none';
+            gameOverScreen.style.display = 'none';
+            settingsModal.style.display = 'none';
+            gameContainer.style.display = 'none';
+            leaderboardScreen.style.display = 'flex';
+            leaderboardLoading.style.display = 'block'; // Show loading
+            setupLeaderboardListener(); // Ensure listener is active and fetches latest data
+        });
+
+        leaderboardReturnToMainBtn.addEventListener('click', () => {
+            leaderboardScreen.style.display = 'none';
+            startScreen.style.display = 'flex';
+        });
+
+        // Event listener for Submit Score button
+        submitScoreBtn.addEventListener('click', () => {
+            const initials = initialsInput.value.trim().toUpperCase();
+            if (initials.length === 3 && /^[A-Z0-9]+$/.test(initials)) {
+                saveScore(score, getOverallAccuracy(), initials);
+                initialsInput.style.display = 'none'; // Hide input after submission
+                submitScoreBtn.style.display = 'none'; // Hide button after submission
+                // Optionally, automatically show leaderboard or return to main menu
+                leaderboardButtonMain.click(); // Go to leaderboard
+            } else {
+                alert('Please enter exactly 3 alphanumeric characters for your initials.');
+            }
+        });
+
+
+        // Event listener for Return to Main Menu from settings modal
+        returnToMainMenuSettingsBtn.addEventListener('click', () => {
+            settingsModal.style.display = 'none';
+            startScreen.style.display = 'flex';
+            gameActive = false; // Ensure game is not active if returning to main menu
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+            }
+            backgroundMusic.pause();
+            backgroundMusic.currentTime = 0;
+        });
+
+        // Global key tracking
+        document.addEventListener('keydown', (event) => {
+            keysPressed[event.key.toLowerCase()] = true;
+            if (!awaitingKeybind && settingsModal.style.display === 'flex') {
+                if (event.key === 'Escape') {
+                    // If game was active before settings, resume game, else go to main menu
+                    if (gameWasActiveBeforeSettings) {
+                        closeSettingsModal(true); // Close and resume game
+                    } else {
+                        returnToMainMenuSettingsBtn.click(); // Go back to main menu
+                    }
+                }
+                return;
+            }
+            if (!awaitingKeybind && gameActive) { // Only handle game keys if game is active and not in keybind mode
+                handleKeyPress(event);
+            }
+        });
+        document.addEventListener('keyup', (event) => {
+            keysPressed[event.key.toLowerCase()] = false;
+        });
+
+
+        // Function to open settings, now universal
+        function openSettings() {
+            gameWasActiveBeforeSettings = gameActive; // Store current game state
+            gameActive = false; // Pause game
+            cancelAnimationFrame(animationFrameId); // Stop game loop
+            backgroundMusic.pause(); // Pause music
+
+            settingsModal.style.display = 'flex';
+            leftKeyDisplay.textContent = keybinds['left'].toUpperCase();
+            rightKeyDisplay.textContent = keybinds['right'].toUpperCase();
+            leftColorPicker.value = blockColors['left'];
+            rightColorPicker.value = blockColors['right'];
+            musicUrlInput.value = backgroundMusic.src;
+
+            // Hide main game containers
+            startScreen.style.display = 'none';
+            gameOverScreen.style.display = 'none';
+            gameContainer.style.display = 'none';
+            leaderboardScreen.style.display = 'none'; // Hide leaderboard screen too
+        }
+
+        // Modified close settings function
+        function closeSettingsModal(resumeGame = false) {
+            settingsModal.style.display = 'none';
+            if (resumeGame && gameWasActiveBeforeSettings) {
+                gameActive = true;
+                gameContainer.style.display = 'flex'; // Show game container
+                gameLoop(performance.now());
+                if (backgroundMusic.src && backgroundMusic.src !== window.location.href + '/') { // Check if valid music URL is loaded
+                     backgroundMusic.play().catch(e => console.error("Error resuming music:", e));
+                }
+            } else {
+                // If not resuming game, or game wasn't active, show main menu
+                startScreen.style.display = 'flex';
+                gameContainer.style.display = 'none'; // Ensure game container is hidden
+                gameActive = false; // Explicitly set to false
+                if (animationFrameId) {
+                    cancelAnimationFrame(animationFrameId);
+                }
+                backgroundMusic.pause();
+                backgroundMusic.currentTime = 0;
+            }
+        }
+
+
+        leftKeyDisplay.addEventListener('click', () => {
+            leftKeyDisplay.textContent = 'Press a key...';
+            awaitingKeybind = 'left';
+        });
+
+        rightKeyDisplay.addEventListener('click', () => {
+            rightKeyDisplay.textContent = 'Press a key...';
+            awaitingKeybind = 'right';
+        });
+
+        // Event listener for remapping keys
+        document.addEventListener('keydown', (event) => {
+            if (awaitingKeybind) {
+                const newKey = event.key.toLowerCase();
+                // Prevent common control keys from being remapped accidentally
+                if (['escape', 'tab', 'shift', 'control', 'alt', 'meta', 'f5', 'f11'].includes(newKey) ||
+                    (newKey === keybinds['left'] && awaitingKeybind !== 'left') ||
+                    (newKey === keybinds['right'] && awaitingKeybind !== 'right')) {
+                    // If an invalid key is pressed, revert display and reset awaitingKeybind
+                    if (awaitingKeybind === 'left') {
+                        leftKeyDisplay.textContent = keybinds['left'].toUpperCase();
+                    } else {
+                        rightKeyDisplay.textContent = keybinds['right'].toUpperCase();
+                    }
+                    awaitingKeybind = null;
+                    event.preventDefault();
+                    return;
+                }
+
+                keybinds[awaitingKeybind] = newKey;
+                localStorage.setItem('keybinds', JSON.stringify(keybinds));
+                // Re-initialize ALL_POSSIBLE_SLOW_KEYS after keybinds are updated
+                ALL_POSSIBLE_SLOW_KEYS.length = 0; // Clear existing
+                Array.from({length: 26}, (_, i) => String.fromCharCode(97 + i)) // a-z
+                    .concat(Array.from({length: 10}, (_, i) => String.fromCharCode(48 + i))) // 0-9
+                    .filter(key => key !== keybinds['left'] && key !== keybinds['right'])
+                    .forEach(key => ALL_POSSIBLE_SLOW_KEYS.push(key));
+
+                if (awaitingKeybind === 'left') {
+                    leftKeyDisplay.textContent = newKey.toUpperCase();
+                } else {
+                    rightKeyDisplay.textContent = newKey.toUpperCase();
+                }
+                awaitingKeybind = null;
+                event.preventDefault();
+            }
+        });
+
+        leftColorPicker.addEventListener('input', (event) => {
+            blockColors['left'] = event.target.value;
+            localStorage.setItem('blockColors', JSON.stringify(blockColors));
+        });
+
+        rightColorPicker.addEventListener('input', (event) => {
+            blockColors['right'] = event.target.value;
+            localStorage.setItem('blockColors', JSON.stringify(blockColors));
+        });
+
+
+        playMusicBtn.addEventListener('click', () => {
+            const musicUrl = musicUrlInput.value;
+            if (musicUrl) {
+                backgroundMusic.src = musicUrl;
+                // Ensure Tone.js AudioContext is running before trying to play music
+                if (typeof Tone !== 'undefined' && Tone.context.state !== 'running') {
+                    Tone.start().then(() => {
+                        console.log("Tone.js AudioContext started successfully for music.");
+                        backgroundMusic.play().catch(e => console.error("Error playing music:", e));
+                    }).catch(e => {
+                        console.error("Error starting Tone.js AudioContext for music:", e);
+                    });
+                } else {
+                    backgroundMusic.play().catch(e => console.error("Error playing music:", e));
+                }
+                localStorage.setItem('musicUrl', musicUrl);
+            } else {
+                backgroundMusic.pause();
+                backgroundMusic.src = ''; // Clear source
+                localStorage.removeItem('musicUrl');
+            }
+        });
+
+        // Settings Navigation Logic
+        navControls.addEventListener('click', () => showSettingsSection('controls'));
+        navGameplay.addEventListener('click', () => showSettingsSection('gameplay'));
+        // Removed navAccount listener
+
+        function showSettingsSection(sectionName) {
+            sectionControls.classList.remove('active');
+            sectionGameplay.classList.remove('active');
+            navControls.classList.remove('active');
+            navGameplay.classList.remove('active');
+
+            if (sectionName === 'controls') {
+                sectionControls.classList.add('active');
+                navControls.classList.add('active');
+            } else if (sectionName === 'gameplay') {
+                sectionGameplay.classList.add('active');
+                navGameplay.classList.add('active');
+            }
+            // Removed account section handling
+        }
 
     </script>
-
 </body>
 </html>
