@@ -3,2194 +3,1054 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rhythm Slicer</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    <title>Universal Sticky Notes App</title>
+    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Tone.js for sound effects - Updated to a more recent stable version -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
+    <!-- Inter font from Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        /* Define CSS custom properties for dynamic theming */
+        :root {
+            --primary-color: #6366f1; /* Indigo 500 */
+            --secondary-color: #a78bfa; /* Violet 400 */
+            --note-bg-color: #ffe87a; /* Light yellow for notes */
+        }
+
+        /* Apply Inter font globally */
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #0d1117; /* Dark background */
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
             margin: 0;
-            overflow: hidden; /* Prevent scrollbars */
-            color: #e6edf3;
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
-            position: relative; /* Needed for absolutely positioned children */
+            padding: 0;
+            overflow-x: hidden; /* Prevent horizontal scroll */
         }
 
-        /* Removed blur from CSS, now handled by JS for canvas content */
-        #game-container {
-            position: relative;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            background-color: #161b22; /* Slightly lighter dark for container */
-            border-radius: 20px;
-            box-shadow: 0 10px 30px rgba(0, 255, 255, 0.2), 0 5px 15px rgba(255, 0, 255, 0.2);
-            padding: 20px;
-            max-width: 95vw; /* Allow a bit more width on smaller screens */
-            width: 1050px; /* Base width for the game area, slightly wider for padding */
-            box-sizing: border-box;
-            border: 2px solid rgba(0, 255, 255, 0.4);
-            overflow: hidden;
-            display: flex; /* Default to flex for game, hidden by script when modals are active */
-            transition: filter 0.2s ease-out; /* Smooth transition for blur */
+        /* Dynamic gradient background using custom properties */
+        .bg-custom-gradient {
+            background-image: linear-gradient(to right, var(--primary-color), var(--secondary-color));
         }
 
-        canvas {
-            background-color: #0d1117;
-            display: block;
-            border-radius: 15px;
-            box-shadow: inset 0 0 15px rgba(0, 255, 255, 0.1);
-            width: 1000px; /* Fixed width as per CANVAS_WIDTH */
-            height: 600px; /* Fixed height as per CANVAS_HEIGHT */
-            border: 1px solid rgba(0, 255, 255, 0.2);
-            max-width: 100%; /* Ensure responsiveness within container */
-            height: auto; /* Maintain aspect ratio if width changes */
+        /* Apply custom colors to elements using custom properties */
+        .text-primary-color {
+            color: var(--primary-color);
+        }
+        .bg-primary-color {
+            background-color: var(--primary-color);
+        }
+        .bg-secondary-color {
+            background-color: var(--secondary-color);
+        }
+        .border-primary-color {
+            border-color: var(--primary-color);
+        }
+        .bg-note-color {
+            background-color: var(--note-bg-color);
         }
 
-        #game-info {
-            display: flex;
-            justify-content: space-between;
-            width: 1000px; /* Match canvas width */
-            margin-bottom: 15px;
-            padding: 0 10px;
-            box-sizing: border-box;
-            align-items: center;
-            flex-wrap: wrap; /* Allow wrapping on small screens */
-            gap: 15px; /* Space between elements */
+        /* Animations for card hover */
+        .card {
+            transition: transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
+        }
+        .card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.2);
         }
 
-        #score, #raw-combo-display, #multiplier-display, #level-display {
-            font-size: 1.5rem;
-            font-weight: bold;
-            flex-shrink: 0; /* Prevent shrinking */
+        /* Custom scrollbar for panel */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
         }
-        #score { flex-grow: 1; text-align: left; }
-        #raw-combo-display { flex-grow: 0; text-align: center; margin-left: auto; }
-        #multiplier-display { flex-grow: 0; text-align: center; margin-right: auto; }
-        #level-display { flex-grow: 0; text-align: right; }
-
-
-        #health-bar-container {
-            font-size: 1.5rem;
-            font-weight: bold;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            flex-shrink: 0;
-            min-width: 280px; /* Ensure health bar has enough space */
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #555;
         }
 
-        #health-bar-outer {
-            width: 200px;
-            height: 25px;
-            background-color: #30363d;
-            border-radius: 12px;
-            overflow: hidden;
-            border: 1px solid rgba(0, 255, 255, 0.4); /* Cyan border */
-            box-shadow: 0 0 10px rgba(0, 255, 255, 0.2); /* Cyan shadow */
-        }
-
-        #health-bar-inner {
-            height: 100%;
-            width: 100%;
-            background: linear-gradient(90deg, #ff007f, #00ffff); /* Pink to Cyan gradient */
-            border-radius: 12px;
-            transition: width 0.1s ease-out;
-        }
-
-        #raw-combo-display {
-            color: #e6edf3; /* Default text color for raw combo */
-            min-width: 100px;
-            text-align: center;
-        }
-
-        #multiplier-display {
-            font-size: 2rem;
-            text-shadow: 0 0 10px rgba(0, 255, 204, 0.5); /* Default shadow, will be updated by JS */
-            min-width: 80px; /* To prevent layout shift */
-            text-align: center;
-        }
-        #multiplier-display.pulsate-combo {
-            animation: comboPulse 0.3s ease-out forwards;
-        }
-
-        @keyframes comboPulse {
-            0% { transform: scale(1); /* text-shadow will be set dynamically */ }
-            50% { transform: scale(1.15); /* text-shadow will be set dynamically */ }
-            100% { transform: scale(1); /* text-shadow will be set dynamically */ }
-        }
-
-        #accuracy-display {
-            position: absolute;
-            bottom: 20px; /* Position at the bottom of the container */
+        /* Custom alert message box styles */
+        .message-box {
+            position: fixed;
+            top: 20px;
             left: 50%;
             transform: translateX(-50%);
-            background-color: rgba(0, 0, 0, 0.6);
-            padding: 8px 15px;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 15px 30px;
             border-radius: 10px;
-            /* Initial colors for accuracy, will be overwritten by JS */
-            color: #ff007f;
-            font-size: 1.3rem;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.5s ease-in-out;
+            pointer-events: none; /* Allows clicks to pass through */
+        }
+        .message-box.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        /* Notes Canvas */
+        #notes-canvas {
+            position: relative;
+            min-height: 70vh; /* Make canvas large enough to drag things around */
+            border: 2px dashed #cbd5e1; /* Gray 300 */
+            border-radius: 1rem; /* rounded-xl */
+            background-color: #f8fafc; /* Slate 50 */
+            overflow: hidden; /* To prevent draggable elements from going outside */
+        }
+
+        /* Draggable/Resizable Category */
+        .category-box {
+            position: absolute;
+            min-width: 250px;
+            min-height: 150px;
+            background-color: #e0f2f7; /* Light Blue */
+            border: 1px solid #90cdf4; /* Blue 300 */
+            border-radius: 0.75rem; /* rounded-lg */
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            cursor: grab;
+            display: flex;
+            flex-direction: column;
+            resize: both; /* Allow resizing */
+            overflow: hidden; /* Hide overflow for notes within */
+            padding: 1rem;
+            z-index: 10;
+            transition: box-shadow 0.1s ease-in-out;
+        }
+        .category-box:active {
+            cursor: grabbing;
+            box-shadow: 0 8px 12px rgba(0, 0, 0, 0.2);
+        }
+        .category-header {
             font-weight: bold;
-            border: 1px solid rgba(255, 0, 127, 0.3);
-            box-shadow: 0 0 15px rgba(255, 0, 127, 0.2);
-            z-index: 50; /* Above canvas, below modals */
-            transition: color 0.1s ease-out, border-color 0.1s ease-out, box-shadow 0.1s ease-out; /* Smooth transitions for color change */
+            font-size: 1.25rem;
+            margin-bottom: 0.5rem;
+            cursor: move; /* Indicate header is for dragging */
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .category-notes-container {
+            flex-grow: 1;
+            overflow-y: auto; /* Scroll for notes inside category */
+            padding-right: 0.5rem; /* Space for scrollbar */
+        }
+        .category-notes-container::-webkit-scrollbar {
+            width: 6px;
+        }
+        .category-notes-container::-webkit-scrollbar-track {
+            background: transparent;
+            border-radius: 10px;
+        }
+        .category-notes-container::-webkit-scrollbar-thumb {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+        }
+        .category-notes-container::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 0, 0, 0.4);
         }
 
-        #level-display {
-            color: #00ffff; /* Cyan for level display */
-            text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+        /* Draggable Note */
+        .note-box {
+            background-color: var(--note-bg-color);
+            border: 1px solid #d6bc3a; /* Yellow 600 */
+            border-radius: 0.5rem; /* rounded-md */
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            cursor: text; /* Indicate editable text */
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            transition: box-shadow 0.1s ease-in-out;
+            word-wrap: break-word; /* Ensure text wraps */
+        }
+        .note-box:focus {
+            outline: none;
+            box-shadow: 0 0 0 2px var(--primary-color);
         }
 
+        /* Delete Buttons for Category and Note */
+        .delete-btn {
+            background-color: #ef4444; /* Red 500 */
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.375rem; /* rounded-md */
+            font-size: 0.75rem;
+            cursor: pointer;
+            border: none;
+            transition: background-color 0.2s ease-in-out;
+        }
+        .delete-btn:hover {
+            background-color: #dc2626; /* Red 600 */
+        }
+        .add-note-btn {
+            background-color: #22c55e; /* Green 500 */
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.375rem; /* rounded-md */
+            font-size: 0.75rem;
+            cursor: pointer;
+            border: none;
+            margin-top: 0.5rem;
+            transition: background-color 0.2s ease-in-out;
+        }
+        .add-note-btn:hover {
+            background-color: #16a34a; /* Green 600 */
+        }
 
-        /* Modals now positioned fixed to cover the entire viewport */
-        #game-over-screen, #start-screen, #settings-modal, #leaderboard-screen {
-            position: fixed; /* Changed to fixed */
+        /* Auth Modal Specific Styles */
+        .modal-overlay {
+            position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(0, 0, 0, 0.85);
+            background-color: rgba(0, 0, 0, 0.6);
             display: flex;
-            flex-direction: column;
             justify-content: center;
             align-items: center;
-            text-align: center;
-            /* No border-radius here as it's full screen */
-            z-index: 100;
-            backdrop-filter: blur(5px); /* Frosted glass effect */
-            animation: fadeIn 0.3s ease-out;
+            z-index: 1000;
         }
-
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-
-        #start-screen h1, #game-over-screen h2, #leaderboard-screen h1 {
-            font-size: 3rem;
-            color: #00ffff;
-            text-shadow: 0 0 15px rgba(0, 255, 255, 0.6);
-            margin-bottom: 20px;
-        }
-
-        #game-over-screen p {
-            font-size: 1.8rem;
-            margin-top: 15px;
-            color: #00ffff; /* Blue for game over stats */
-        }
-
-        .btn {
-            background: linear-gradient(145deg, #00ffff, #007bff);
-            color: white;
-            padding: 12px 25px;
-            border: none;
-            border-radius: 10px;
-            font-size: 1.2rem;
-            cursor: pointer;
-            margin: 10px;
-            box-shadow: 0 5px 15px rgba(0, 255, 255, 0.3);
-            transition: all 0.3s ease;
-            font-weight: bold;
-            position: relative;
-            overflow: hidden;
-            outline: none;
-        }
-
-        .btn::before {
-            content: '';
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 300%;
-            height: 300%;
-            background: rgba(255, 255, 255, 0.15);
-            transition: all 0.75s;
-            border-radius: 50%;
-            z-index: 0;
-            transform: translate(-50%, -50%) scale(0);
-        }
-
-        .btn:hover::before {
-            transform: translate(-50%, -50%) scale(1);
-            opacity: 0;
-        }
-
-        .btn:hover {
-            box-shadow: 0 8px 20px rgba(0, 255, 255, 0.5), 0 0 30px rgba(0, 255, 255, 0.7);
-            transform: translateY(-2px);
-        }
-
-        .btn:active {
-            transform: translateY(1px);
-            box-shadow: 0 3px 10px rgba(0, 255, 255, 0.3);
-        }
-
-        .settings-btn {
-            background: none;
-            border: none;
-            font-size: 1.8rem;
-            color: #00ffff;
-            cursor: pointer;
-            margin-left: 20px;
-            transition: color 0.3s ease;
-        }
-
-        .settings-btn:hover {
-            color: #ffcc00;
-        }
-
         .modal-content {
-            background-color: #1e242c;
-            padding: 30px;
-            border-radius: 15px;
-            box-shadow: 0 10px 25px rgba(0, 255, 255, 0.3);
-            width: 90%;
-            max-width: 500px;
-            box-sizing: border-box;
-            border: 1px solid rgba(0, 255, 255, 0.3);
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
-
-        .modal-content h3 {
-            font-size: 2rem;
-            color: #00ffff;
-            margin-bottom: 20px;
-            text-shadow: 0 0 10px rgba(0, 255, 255, 0.4);
-        }
-
-        .modal-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 1.1rem;
-            padding: 10px 0;
-            border-bottom: 1px dashed rgba(255, 255, 255, 0.2);
-        }
-
-        .modal-item:last-child {
-            border-bottom: none;
-        }
-
-        .key-display {
-            background-color: #30363d;
-            padding: 8px 15px;
-            border-radius: 8px;
-            border: 1px solid rgba(0, 255, 255, 0.2);
-            min-width: 60px;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        .key-display:hover {
-            background-color: #404c5a;
-            box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
-        }
-
-        input[type="color"] {
-            -webkit-appearance: none;
-            -moz-appearance: none;
-            appearance: none;
-            width: 40px;
-            height: 40px;
-            background: none;
-            border: none;
-            cursor: pointer;
-            padding: 0;
-            border-radius: 10px;
-            overflow: hidden;
-            transition: all 0.2s ease;
-        }
-
-        input[type="color"]::-webkit-color-swatch-wrapper {
-            padding: 0;
-        }
-
-        input[type="color"]::-webkit-color-swatch {
-            border: 2px solid #fff;
-            border-radius: 8px;
-        }
-
-        input[type="color"]:hover {
-            transform: scale(1.1);
-            box-shadow: 0 0 15px rgba(255, 255, 255, 0.4);
-        }
-
-        input[type="text"].initials-input {
-            background-color: #30363d;
-            color: #e6edf3;
-            border: 1px solid rgba(0, 255, 255, 0.2);
-            border-radius: 8px;
-            padding: 8px 12px;
-            width: 100px;
-            text-align: center;
-            font-size: 1.2rem;
-            text-transform: uppercase; /* Force uppercase for initials */
-        }
-        input[type="text"].initials-input:focus {
-            outline: none;
-            border-color: #00ffff;
-            box-shadow: 0 0 10px rgba(0, 255, 255, 0.4);
-        }
-
-        .close-btn {
-            background: linear-gradient(145deg, #ff007f, #ff4d00);
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 8px;
-            font-size: 1rem;
-            cursor: pointer;
-            margin-top: 20px;
-            box-shadow: 0 3px 10px rgba(255, 0, 127, 0.3);
-            transition: all 0.3s ease;
-        }
-
-        .close-btn:hover {
-            box-shadow: 0 5px 15px rgba(255, 0, 127, 0.5);
-            transform: translateY(-1px);
-        }
-
-        .pulsating-element {
-            animation: pulse 1.5s infinite alternate;
-        }
-
-        @keyframes pulse {
-            0% { transform: scale(1); opacity: 1; }
-            100% { transform: scale(1.05); opacity: 0.9; }
-        }
-
-        /* Settings Modal Specifics */
-        .settings-nav {
-            display: flex;
-            justify-content: center;
-            margin-bottom: 20px;
-            border-bottom: 1px solid rgba(0, 255, 255, 0.2);
-            padding-bottom: 10px;
-        }
-
-        .settings-nav button {
-            background: none;
-            border: none;
-            color: #e6edf3;
-            font-size: 1.2rem;
-            padding: 8px 15px;
-            cursor: pointer;
-            border-radius: 8px;
-            transition: all 0.3s ease;
-            margin: 0 5px;
-        }
-
-        .settings-nav button:hover {
-            background-color: rgba(0, 255, 255, 0.1);
-        }
-
-        .settings-nav button.active {
-            background-color: #00ffff;
-            color: #161b22;
-            font-weight: bold;
-            box-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
-        }
-
-        .settings-section {
-            display: none; /* Hidden by default */
-            flex-direction: column;
-            gap: 15px;
-        }
-        .settings-section.active {
-            display: flex; /* Show active section */
-        }
-
-        /* Leaderboard Specifics */
-        #leaderboard-section {
-            background-color: #1e242c;
-            padding: 20px;
-            border-radius: 15px;
-            box-shadow: 0 5px 15px rgba(0, 255, 255, 0.3);
+            background-color: white;
+            padding: 2rem;
+            border-radius: 1rem;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
             width: 90%;
             max-width: 400px;
-            margin-top: 25px;
-            border: 1px solid rgba(0, 255, 255, 0.3);
-            animation: fadeIn 0.5s ease-out;
-        }
-
-        #leaderboard-section h3 {
-            font-size: 1.8rem;
-            color: #00ffff;
-            margin-bottom: 15px;
-            text-shadow: 0 0 10px rgba(0, 255, 255, 0.4);
             text-align: center;
         }
-
-        .leaderboard-entry {
+        /* Loading overlay styles */
+        #loadingOverlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(255, 255, 255, 0.8);
             display: flex;
-            justify-content: space-between;
+            flex-direction: column;
+            justify-content: center;
             align-items: center;
-            padding: 10px 15px;
-            /* Changed background gradient to match text colors */
-            background: linear-gradient(90deg, rgba(0, 255, 204, 0.1), rgba(255, 0, 127, 0.1)); 
-            border-radius: 8px;
-            margin-bottom: 8px;
-            font-size: 1.1rem;
-            border: 1px solid rgba(0, 255, 255, 0.2);
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            z-index: 2000; /* Higher than other modals */
+            font-size: 1.5rem;
+            color: var(--primary-color);
         }
-
-        .leaderboard-entry:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 10px rgba(0, 255, 255, 0.4);
+        .spinner {
+            border: 8px solid #f3f3f3;
+            border-top: 8px solid var(--primary-color);
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            animation: spin 1s linear infinite;
+            margin-bottom: 1rem;
         }
-
-        .leaderboard-entry span:first-child {
-            font-weight: bold;
-            color: #00ffcc; /* Cyan for scores */
-        }
-        .leaderboard-entry span:last-child {
-            color: #ff007f; /* Pink for accuracy */
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
     </style>
-</head>
-<body>
-    <!-- Game Container (initially visible, hidden when modals are open) -->
-    <div id="game-container">
-        <div id="game-info">
-            <div id="score">Score: 0</div>
-            <div id="raw-combo-display">Combo: 0</div> <!-- New element for raw combo count -->
-            <div id="multiplier-display">1x</div> <!-- Displays the multiplier with color changes -->
-            <div id="level-display">Level: 1</div> <!-- New Level Display -->
-            <div id="health-bar-container">
-                Health:
-                <div id="health-bar-outer">
-                    <div id="health-bar-inner"></div>
-                </div>
-            </div>
-            <div>
-                <!-- Removed settings-btn from game-info, handled by main menu -->
-            </div>
-        </div>
-        <canvas id="gameCanvas"></canvas>
-        <div id="accuracy-display">Accuracy: 100.00%</div>
-    </div>
-
-    <!-- Modals (now direct children of body and fixed position) -->
-    <div id="start-screen" class="pulsating-element">
-        <h1>Rhythm Slicer</h1>
-        <button id="start-game-btn" class="btn">Start Game</button>
-        <button id="main-menu-options-btn" class="btn">Options</button>
-        <button id="leaderboard-button-main" class="btn">Leaderboard</button>
-    </div>
-
-    <div id="game-over-screen" style="display: none;">
-        <h2>Game Over!</h2>
-        <p id="final-score">Final Score: 0</p>
-        <p id="final-accuracy">Final Accuracy: 0.00%</p>
-        <p id="final-level">Level Reached: 1</p> <!-- Display final level -->
-        <div class="flex flex-col items-center gap-4 mt-4">
-            <label for="initials-input" class="text-white text-lg">Enter Your Initials (3 chars):</label>
-            <input type="text" id="initials-input" class="initials-input" maxlength="3" placeholder="ABC">
-            <button id="submit-score-btn" class="btn">Submit Score to Leaderboard</button>
-        </div>
-        <button id="restart-game-btn" class="btn">Restart</button>
-        <button id="game-over-return-to-main-btn" class="btn">Return to Main Menu</button>
-        <!-- Leaderboard button is now part of the submit flow or main menu -->
-    </div>
-
-    <div id="settings-modal" style="display: none;">
-        <div class="modal-content">
-            <h3>Game Settings</h3>
-            <div class="settings-nav">
-                <button id="nav-controls" class="active">Controls & Appearance</button>
-                <button id="nav-gameplay">Gameplay & Audio</button>
-                <!-- Removed Account tab as authentication is now anonymous -->
-            </div>
-
-            <div id="section-controls" class="settings-section active">
-                <div class="modal-item">
-                    <span>Left Block Key:</span>
-                    <span id="left-key-display" class="key-display">U</span>
-                </div>
-                <div class="modal-item">
-                    <span>Right Block Key:</span>
-                    <span id="right-key-display" class="key-display">O</span>
-                </div>
-                <div class="modal-item">
-                    <span>Left Block Color:</span>
-                    <input type="color" id="left-color-picker">
-                </div>
-                <div class="modal-item">
-                    <span>Right Block Color:</span>
-                    <input type="color" id="right-color-picker">
-                </div>
-            </div>
-
-            <div id="section-gameplay" class="settings-section">
-                <div class="modal-item">
-                    <span>Music URL (MP3/WAV):</span>
-                    <input type="text" id="music-url-input" placeholder="Paste direct audio URL here" class="flex-grow bg-gray-700 text-white p-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none">
-                </div>
-                <button id="play-music-btn" class="btn">Play Music</button>
-            </div>
-
-            <button id="return-to-main-menu-settings-btn" class="close-btn">Return to Main Menu</button>
-        </div>
-    </div>
-
-    <!-- New Leaderboard Screen -->
-    <div id="leaderboard-screen" style="display: none;">
-        <h1>Leaderboard</h1>
-        <div id="leaderboard-section">
-            <p id="leaderboard-loading" class="text-center text-gray-500">Loading Leaderboard...</p>
-            <div id="leaderboard-list">
-                <!-- Leaderboard entries will be dynamically inserted here -->
-            </div>
-        </div>
-        <button id="leaderboard-return-to-main-btn" class="btn">Return to Main Menu</button>
-    </div>
-
-    <audio id="background-music" loop></audio>
-
+    <!-- Firebase SDKs -->
     <script type="module">
-        // Firebase Imports
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, query, orderBy, limit, getDocs, addDoc, onSnapshot, serverTimestamp, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, onSnapshot, collection, query, addDoc, deleteDoc, updateDoc, where, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // PASTE YOUR FIREBASE CONFIGURATION OBJECT HERE.
+        // Global variables for Firebase
+        window.firebaseApp = null;
+        window.db = null;
+        window.auth = null;
+        window.userId = null;
+        // Directly embed your Firebase Config for publishable version
         const firebaseConfig = {
-          apiKey: "AIzaSyAIFsE6cwpChwGqLMDgoZlaalbOk_zjMA0",
-          authDomain: "rythm-slicer-game.firebaseapp.com",
-          projectId: "rythm-slicer-game",
-          storageBucket: "rythm-slicer-game.firebaseapp.com",
-          messagingSenderId: "42501787115",
-          appId: "1:42501787115:web:fb2fc5bc867e31d4a05dae",
+            apiKey: "AIzaSyBm00uFk4lPTLbzhvdU7DFExqhvySeKIC8",
+            authDomain: "notesapp-643cd.firebaseapp.com",
+            projectId: "notesapp-643cd",
+            storageBucket: "notesapp-643cd.firebasestorage.app",
+            messagingSenderId: "599886933610",
+            appId: "1:599886933610:web:708c30f834c460324b6413",
+            measurementId: "G-GY7LYN8ECF" // measurementId is optional and not used in this app's core logic
         };
-
-        // For GitHub Pages, we use the projectId as the appId for Firestore path consistency.
-        const appId = firebaseConfig.projectId;
-
-        let app;
-        let db;
-        let auth;
-        let userId = null;
-        let username = "Guest"; // Default username display
-        let isAuthReady = false;
-
-        // User ID Display Element (removed as not needed for anonymous user display)
-        // const userIdDisplay = document.createElement('div');
-        // userIdDisplay.id = 'user-id-display';
-        // userIdDisplay.className = 'absolute top-4 left-4 text-sm text-gray-400';
-        // userIdDisplay.textContent = 'User ID: Loading...';
-        // document.body.appendChild(userIdDisplay);
-
-        // Customization (only keybinds and colors remain)
-        let keybinds = {
-            'left': 'u',
-            'right': 'o'
-        };
-        let blockColors = {
-            'left': '#00ffff', // Cyan
-            'right': '#ff007f' // Pink
-        };
-
-        // All possible keys for slow blocks, excluding left/right keybinds
-        // This array is now initialized *after* keybinds are defined, to prevent ReferenceError.
-        const ALL_POSSIBLE_SLOW_KEYS = Array.from({length: 26}, (_, i) => String.fromCharCode(97 + i)) // a-z
-            .concat(Array.from({length: 10}, (_, i) => String.fromCharCode(48 + i))) // 0-9
-            .filter(key => key !== keybinds['left'] && key !== keybinds['right']);
+        // Use projectId as the appId for Firestore paths in a standalone environment
+        window.appId = firebaseConfig.projectId;
 
 
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
-        const scoreDisplay = document.getElementById('score');
-        const healthBarInner = document.getElementById('health-bar-inner');
-        const rawComboDisplay = document.getElementById('raw-combo-display'); // New: Raw combo count
-        const multiplierDisplay = document.getElementById('multiplier-display'); // Renamed: Multiplier display
-        const levelDisplay = document.getElementById('level-display'); // Level Display Element
-        const accuracyDisplay = document.getElementById('accuracy-display');
-        const startScreen = document.getElementById('start-screen');
-        const startGameBtn = document.getElementById('start-game-btn');
-        const mainMenuOptionsBtn = document.getElementById('main-menu-options-btn'); // New: Options button on main menu
-        const leaderboardButtonMain = document.getElementById('leaderboard-button-main'); // New: Leaderboard button on main menu
-        const gameOverScreen = document.getElementById('game-over-screen');
-        const finalScoreDisplay = document.getElementById('final-score');
-        const finalAccuracyDisplay = document.getElementById('final-accuracy');
-        const finalLevelDisplay = document.getElementById('final-level'); // Corrected this line
-        const initialsInput = document.getElementById('initials-input'); // New: Initials input
-        const submitScoreBtn = document.getElementById('submit-score-btn'); // New: Submit score button
-        const restartGameBtn = document.getElementById('restart-game-btn');
-        const gameOverReturnToMainBtn = document.getElementById('game-over-return-to-main-btn'); // New: Return to Main from game over
-        const leaderboardButtonGameOver = document.getElementById('leaderboard-button-gameover'); // Removed, handled by submit flow
-        const settingsModal = document.getElementById('settings-modal');
-        const returnToMainMenuSettingsBtn = document.getElementById('return-to-main-menu-settings-btn'); // New: Return to Main from settings
-        const leftKeyDisplay = document.getElementById('left-key-display');
-        const rightKeyDisplay = document.getElementById('right-key-display');
-        const leftColorPicker = document.getElementById('left-color-picker');
-        const rightColorPicker = document.getElementById('right-color-picker');
-        const musicUrlInput = document.getElementById('music-url-input');
-        const playMusicBtn = document.getElementById('play-music-btn');
-        const backgroundMusic = document.getElementById('background-music');
-        const gameContainer = document.getElementById('game-container'); // Get the game container
-
-        // Leaderboard elements
-        const leaderboardScreen = document.getElementById('leaderboard-screen'); // The new leaderboard screen
-        const leaderboardList = document.getElementById('leaderboard-list');
-        const leaderboardLoading = document.getElementById('leaderboard-loading'); // Loading indicator
-        const leaderboardReturnToMainBtn = document.getElementById('leaderboard-return-to-main-btn'); // Button on leaderboard screen
-
-
-        // Settings Navigation elements
-        const navControls = document.getElementById('nav-controls');
-        const navGameplay = document.getElementById('nav-gameplay');
-        // Removed navAccount as there's no explicit account management anymore
-        const sectionControls = document.getElementById('section-controls');
-        const sectionGameplay = document.getElementById('section-gameplay');
-        // Removed sectionAccount
-        // Removed loginBtn and logoutBtn from JS references as their elements are removed from HTML
-
-
-        // Game Constants (adjustable)
-        const CANVAS_WIDTH = 1000; // Increased width
-        const CANVAS_HEIGHT = 600; // Increased height
-        const TARGET_Y = CANVAS_HEIGHT * 0.85; // Y position where blocks are hit
-        const INITIAL_BLOCK_SIZE = 50;
-        const BASE_BLOCK_TRAVEL_DURATION = 2000; // Base duration in ms for a block to travel (slower initial speed)
-        const SLOW_BLOCK_TRAVEL_FACTOR = 2; // Slow block falls at half the speed (twice the duration)
-        const MAX_HEALTH = 100;
-        const HEALTH_LOSS_PER_MISS = 15;
-        const HEALTH_REGEN_PER_HIT = 5;
-        const PARTICLE_COUNT_ON_HIT = 15;
-        const PARTICLE_LIFETIME = 400; // Milliseconds
-        const CHAIN_MIN_LENGTH = 2;
-        const CHAIN_MAX_LENGTH = 4;
-        const CHAIN_OFFSET_TIME = 200; // Time in ms between chain blocks - increased for spacing
-
-        const MAX_ACCURACY_POINTS_PER_NOTE = 115;
-        const MIN_ACCURACY_POINTS_PER_NOTE = 15;
-
-        const POPUP_LIFETIME = 800; // Milliseconds for popup to fade
-        const POPUP_MOVE_SPEED = 0.05;
-
-        const CABLE_WIDTH = 8;
-        const CABLE_RADIUS = 4;
-
-        const HEALTH_LOSS_ON_BOMB_HIT = HEALTH_LOSS_PER_MISS * 2;
-        const HEALTH_GAIN_ON_BOMB_MISS = HEALTH_REGEN_PER_HIT * 1.5;
-
-        // Spawn chances
-        const SINGLE_NOTE_CHANCE = 0.35; // Reduced to make room for slow blocks
-        const DOUBLE_NOTE_CHANCE = 0.20;
-        const CHAIN_NOTE_CHANCE = 0.35; // Reduced
-        const SLOW_BLOCK_CHANCE = 0.10; // New: Chance for slow block
-        const BOMB_INTEGRATION_CHANCE = 0.25;
-
-        const HIT_PRECISION_WINDOW = 200;
-
-        // Combo Multiplier Constants
-        const COMBO_MULTIPLIERS = [1, 3, 5, 10]; // Multiplier values
-        const COMBO_LEVEL_UP_HITS = 5; // Notes needed for each multiplier increase
-        const COMBO_COLORS = [
-            '#00ffcc', // 1x (Greenish-cyan, original combo color)
-            '#66ffb3', // 3x (Lighter green)
-            '#ffcc00', // 5x (Yellow)
-            '#ff007f'  // 10x (Pink/Red, matching right block color)
-        ];
-
-        // Level System Constants
-        const LEVEL_UP_DURATION = 60000; // 1 minute in milliseconds
-        const BASE_NJS_VALUE = 5; // Starting NJS level (for reference)
-        const NJS_PER_LEVEL_INCREASE = 5; // NJS increase per level, as requested
-        const BASE_SPAWN_INTERVAL = 1200; // Initial block spawn interval (ms)
-        const SPAWN_INTERVAL_DECREASE_PER_LEVEL = 100; // ms decrease in spawn interval per level
-        const MIN_SPAWN_INTERVAL = 400; // Minimum spawn interval to prevent unplayability
-
-        // Lane Variation Constants
-        const LANE_COUNT_PER_SIDE = 5; // 5 lanes on left, 5 on right
-        let leftLaneCenters = []; // Stores the X coordinates for the center of each left lane
-        let rightLaneCenters = []; // Stores the X coordinates for the center of each right lane
-
-
-        // Game State Variables
-        let score = 0;
-        let health = MAX_HEALTH;
-        let rawComboCount = 0; // The actual combo count
-        let consecutiveHits = 0; // Tracks hits for multiplier progression
-        let currentComboLevel = 0; // Index for COMBO_MULTIPLIERS array
-        let totalNotesHit = 0;
-        let totalAccuracySum = 0;
-        let blocks = [];
-        let particles = [];
-        let popups = [];
-        let lastBlockSpawnTime = 0;
-        let blockSpawnInterval = BASE_SPAWN_INTERVAL; // Initialized with BASE_SPAWN_INTERVAL
-        let gameActive = false;
-        let animationFrameId;
-        let keysPressed = {};
-        let gameWasActiveBeforeSettings = false; // Flag to remember if game was active when settings opened
-        let doubleNoteCounter = 0;
-        let gameOverHandled = false;
-
-        let level = 1; // Current game level
-        let lastLevelUpTime = 0; // Timestamp of the last level up
-
-        let activeSlowBlock = null; // New: Holds the reference to the current active slow block
-
-        let awaitingKeybind = null;
-
-        // Tone.js Audio Setup
-        let kickSynth, hiHatSynth, scratchSynth;
-        let synthsInitialized = false;
-
-        function setupAudioSynths() {
-            if (typeof Tone === 'undefined') {
-                console.error("Tone.js is not loaded during setupAudioSynths. This should not happen if called after Tone.start().");
-                return;
-            }
-            if (synthsInitialized) {
-                console.log("Audio synths already initialized.");
-                return;
-            }
-
-            kickSynth = new Tone.MembraneSynth({
-                pitchDecay: 0.02,
-                octaves: 10,
-                oscillator: { type: "sine" },
-                envelope: {
-                    attack: 0.001, decay: 0.4, sustain: 0.01, release: 0.8, attackCurve: "exponential"
-                }
-            }).toDestination();
-
-            hiHatSynth = new Tone.NoiseSynth({
-                noise: { type: "white" },
-                envelope: {
-                    attack: 0.001, decay: 0.1, sustain: 0.01, release: 0.05
-                },
-                filterEnvelope: {
-                    attack: 0.001, decay: 0.1, sustain: 0.01, release: 0.05,
-                    baseFrequency: 4000, octaves: -2, exponent: 2
-                }
-            }).toDestination();
-
-            scratchSynth = new Tone.PolySynth(Tone.Synth, {
-                oscillator : { type : "sawtooth" },
-                envelope : {
-                    attack : 0.01, decay : 0.1, sustain : 0.01, release : 0.2
-                }
-            }).toDestination();
-
-            synthsInitialized = true;
-            console.log("Audio synths initialized successfully.");
-        }
-
-        // --- Utility Functions ---
-
-        // Function to draw a rounded rectangle
-        function roundRect(ctx, x, y, width, height, radius) {
-            if (width < 2 * radius) radius = width / 2;
-            if (height < 2 * radius) radius = height / 2;
-            ctx.beginPath();
-            ctx.moveTo(x + radius, y);
-            ctx.arcTo(x + width, y, x + width, y + height, radius);
-            ctx.arcTo(x + width, y + height, x, y + height, radius);
-            ctx.arcTo(x, y + height, x, y, radius);
-            ctx.arcTo(x, y, x + width, y, radius);
-            ctx.closePath();
-        }
-
-        // Initialize canvas dimensions and lane positions
-        function initCanvas() {
-            canvas.width = CANVAS_WIDTH;
-            canvas.height = CANVAS_HEIGHT;
-
-            leftLaneCenters = [];
-            rightLaneCenters = [];
-            const halfCanvasWidth = CANVAS_WIDTH / 2;
-
-            // Calculate positions for 5 lanes on the left side
-            const leftLaneTotalWidth = halfCanvasWidth;
-            const leftLaneSpacing = leftLaneTotalWidth / LANE_COUNT_PER_SIDE;
-            for (let i = 0; i < LANE_COUNT_PER_SIDE; i++) {
-                leftLaneCenters.push((i * leftLaneSpacing) + (leftLaneSpacing / 2));
-            }
-
-            // Calculate positions for 5 lanes on the right side
-            const rightLaneTotalWidth = halfCanvasWidth;
-            const rightLaneSpacing = rightLaneTotalWidth / LANE_COUNT_PER_SIDE;
-            for (let i = 0; i < LANE_COUNT_PER_SIDE; i++) {
-                rightLaneCenters.push(halfCanvasWidth + (i * rightLaneSpacing) + (rightLaneSpacing / 2));
+        // Message Box Function
+        function showMessage(message, duration = 3000) {
+            const messageBox = document.getElementById('messageBox');
+            if (messageBox) {
+                messageBox.textContent = message;
+                messageBox.classList.add('show');
+                setTimeout(() => {
+                    messageBox.classList.remove('show');
+                }, duration);
             }
         }
 
-        // Function to clamp a value between a min and max
-        function clamp(value, min, max) {
-            return Math.max(min, Math.min(value, max));
-        }
-
-        // --- Game Logic ---
-
-        // Reset game state
-        function resetGame() {
-            score = 0;
-            health = MAX_HEALTH;
-            rawComboCount = 0; // Reset raw combo
-            consecutiveHits = 0;
-            currentComboLevel = 0;
-            totalNotesHit = 0;
-            totalAccuracySum = 0;
-            blocks = [];
-            particles = [];
-            popups = [];
-            lastBlockSpawnTime = 0;
-            blockSpawnInterval = BASE_SPAWN_INTERVAL; // Reset to base interval
-            gameActive = true;
-            gameOverHandled = false;
-            activeSlowBlock = null; // Reset active slow block
-
-            level = 1; // Reset level
-            lastLevelUpTime = performance.now(); // Start level timer
-
-            updateScoreDisplay();
-            updateHealthBar();
-            updateRawComboDisplay(); // Update raw combo display
-            updateMultiplierDisplay(); // Update multiplier display
-            updateAccuracyDisplay(); // Update accuracy display immediately
-            updateLevelDisplay(); // Update level display
-
-            // Hide initials input and submit button until game over
-            initialsInput.style.display = 'none';
-            submitScoreBtn.style.display = 'none';
-            initialsInput.value = ''; // Clear previous initials
-
-            // Show game elements
-            gameContainer.style.display = 'flex';
-            startScreen.style.display = 'none';
-            gameOverScreen.style.display = 'none';
-            leaderboardScreen.style.display = 'none'; // Hide leaderboard screen too
-
-            // Ensure no lingering animation frames if restarting from game over
-            if (animationFrameId) {
-                cancelAnimationFrame(animationFrameId);
-            }
-            backgroundMusic.pause();
-            backgroundMusic.currentTime = 0;
-            gameLoop(performance.now()); // Start the game loop with current timestamp
-        }
-
-        // End the game
-        function endGame() {
-            if (gameOverHandled) return;
-
-            gameOverHandled = true;
-
-            gameActive = false;
-            cancelAnimationFrame(animationFrameId);
-            finalScoreDisplay.textContent = `Final Score: ${score}`;
-            finalAccuracyDisplay.textContent = `Final Accuracy: ${getOverallAccuracy().toFixed(2)}%`;
-            finalLevelDisplay.textContent = `Level Reached: ${level}`; // Display final level
-            gameOverScreen.style.display = 'flex';
-            gameContainer.style.display = 'none'; // Hide game container
-            backgroundMusic.pause();
-
-            // Show initials input and submit button on game over
-            initialsInput.style.display = 'block';
-            submitScoreBtn.style.display = 'block';
-            initialsInput.focus(); // Focus the input for easy typing
-
-            if (typeof Tone !== 'undefined' && Tone.Transport) {
-                Tone.Transport.stop();
-                Tone.Transport.cancel();
-            }
-        }
-
-        // Update score display
-        function updateScoreDisplay() {
-            scoreDisplay.textContent = `Score: ${score}`;
-        }
-
-        // Update health bar visual
-        function updateHealthBar() {
-            healthBarInner.style.width = `${clamp(health, 0, MAX_HEALTH)}%`;
-            if (health <= 0) {
-                endGame();
-            }
-        }
-
-        // Update raw combo display
-        function updateRawComboDisplay() {
-            rawComboDisplay.textContent = `Combo: ${rawComboCount}`;
-        }
-
-        // Update multiplier display and trigger pulsation
-        function updateMultiplierDisplay() {
-            multiplierDisplay.textContent = `${COMBO_MULTIPLIERS[currentComboLevel]}x`; // Show multiplier
-            const currentColor = COMBO_COLORS[currentComboLevel];
-            multiplierDisplay.style.color = currentColor;
-            multiplierDisplay.style.textShadow = `0 0 10px ${currentColor}80`;
-
-            multiplierDisplay.classList.remove('pulsate-combo');
-            void multiplierDisplay.offsetWidth;
-            multiplierDisplay.classList.add('pulsate-combo');
-        }
-
-        // Update level display
-        function updateLevelDisplay() {
-            levelDisplay.textContent = `Level: ${level}`;
-        }
-
-        // Increment combo
-        function incrementCombo() {
-            rawComboCount++; // Increment raw combo count
-            consecutiveHits++;
-
-            // Check if combo multiplier should increase
-            if (currentComboLevel < COMBO_MULTIPLIERS.length - 1 && consecutiveHits % COMBO_LEVEL_UP_HITS === 0) {
-                currentComboLevel++;
-                updateMultiplierDisplay(); // Update display for new multiplier
-            } else {
-                updateMultiplierDisplay(); // Still update to trigger pulse on every hit
-            }
-            updateRawComboDisplay(); // Update raw combo display
-        }
-
-        // Reset combo
-        function resetCombo() {
-            if (rawComboCount > 0 || consecutiveHits > 0) {
-                rawComboCount = 0; // Reset raw combo
-                consecutiveHits = 0;
-                currentComboLevel = 0;
-                updateRawComboDisplay(); // Update raw combo display
-                updateMultiplierDisplay(); // Update multiplier display
-                if (scratchSynth && typeof Tone !== 'undefined' && Tone.context.state === 'running') {
-                    // Added a small offset to Tone.now() to ensure strictly increasing time
-                    scratchSynth.triggerAttackRelease("C2", "0.2", Tone.now() + 0.0001);
-                }
-            }
-        }
-
-        // Calculate and update overall accuracy display
-        function getOverallAccuracy() {
-            if (totalNotesHit === 0) return 100;
-            const maxPossibleAccuracySum = totalNotesHit * 100;
-            return (totalAccuracySum / maxPossibleAccuracySum) * 100;
-        }
-
-        // Function to interpolate colors based on accuracy
-        function getAccuracyColor(accuracy) {
-            // Pink: R=255, G=0, B=127 (#ff007f) - for 100% accuracy
-            // Blue: R=0, G=255, B=255 (#00ffff) - for 0% accuracy
-            const pink = { r: 255, g: 0, b: 127 };
-            const blue = { r: 0, g: 255, b: 255 };
-
-            // Normalize accuracy to a factor between 0 (blue) and 1 (pink)
-            const factor = clamp(accuracy / 100, 0, 1);
-
-            const r = Math.round(blue.r * (1 - factor) + pink.r * factor);
-            const g = Math.round(blue.g * (1 - factor) + pink.g * factor);
-            const b = Math.round(blue.b * (1 - factor) + pink.b * factor);
-
-            return `rgb(${r}, ${g}, ${b})`;
-        }
-
-
-        function updateAccuracyDisplay() {
-            const currentAccuracy = getOverallAccuracy();
-            accuracyDisplay.textContent = `Accuracy: ${currentAccuracy.toFixed(2)}%`;
-
-            const accuracyColor = getAccuracyColor(currentAccuracy);
-            accuracyDisplay.style.color = accuracyColor;
-            // Adjust border and shadow to use rgba with proper opacity for glow effect
-            accuracyDisplay.style.borderColor = accuracyColor.replace('rgb', 'rgba').replace(')', ', 0.6)');
-            accuracyDisplay.style.boxShadow = `0 0 15px ${accuracyColor.replace('rgb', 'rgba').replace(')', ', 0.4)')}`;
-        }
-
-        // Update game level based on time
-        function updateLevel(currentTime) {
-            if (currentTime - lastLevelUpTime > LEVEL_UP_DURATION) {
-                level++;
-                lastLevelUpTime = currentTime;
-                updateLevelDisplay();
-
-                // Decrease spawn interval as level increases (more frequent notes)
-                blockSpawnInterval = Math.max(MIN_SPAWN_INTERVAL, BASE_SPAWN_INTERVAL - (level * SPAWN_INTERVAL_DECREASE_PER_LEVEL));
-
-                console.log(`Level Up! New Level: ${level}, New Spawn Interval: ${blockSpawnInterval.toFixed(0)}ms`);
-            }
-        }
-
-
-        // Spawn a new block or chain or double note or bomb
-        function spawnBlock(timestamp) {
-            const currentNJS = BASE_NJS_VALUE + (level - 1) * NJS_PER_LEVEL_INCREASE;
-
-            // Base travel duration, will be modified for slow blocks
-            let blockTravelDuration = BASE_BLOCK_TRAVEL_DURATION / (currentNJS / BASE_NJS_VALUE);
-            const startY = -INITIAL_BLOCK_SIZE;
-
-            const spawnTypeRoll = Math.random();
-            let blockTypeToSpawn;
-
-            // Determine block type based on probabilities
-            if (spawnTypeRoll < SINGLE_NOTE_CHANCE) {
-                blockTypeToSpawn = 'single';
-            } else if (spawnTypeRoll < SINGLE_NOTE_CHANCE + DOUBLE_NOTE_CHANCE) {
-                blockTypeToSpawn = 'double';
-            } else if (spawnTypeRoll < SINGLE_NOTE_CHANCE + DOUBLE_NOTE_CHANCE + CHAIN_NOTE_CHANCE) {
-                blockTypeToSpawn = 'chain';
-            } else {
-                blockTypeToSpawn = 'slow'; // This is the new slow block
-            }
-
-            // Logic to ensure only one slow block is active
-            if (blockTypeToSpawn === 'slow' && activeSlowBlock !== null) {
-                // If a slow block is already active, revert to spawning a normal block type
-                const normalSpawnRoll = Math.random();
-                if (normalSpawnRoll < 0.5) { // 50% chance for single
-                    blockTypeToSpawn = 'single';
-                } else { // 50% chance for chain
-                    blockTypeToSpawn = 'chain';
-                }
-            }
-
-
-            if (blockTypeToSpawn === 'slow') {
-                // Slower falling speed: half the speed means twice the travel duration
-                blockTravelDuration *= SLOW_BLOCK_TRAVEL_FACTOR;
-                const randomContent = ALL_POSSIBLE_SLOW_KEYS[Math.floor(Math.random() * ALL_POSSIBLE_SLOW_KEYS.length)];
-
-                // Slow blocks appear in a single, central lane (or choose a random lane, for now central)
-                const randomLaneX = leftLaneCenters[Math.floor(LANE_COUNT_PER_SIDE / 2)];
-
-                const newSlowBlock = {
-                    x: randomLaneX,
-                    y: startY,
-                    size: INITIAL_BLOCK_SIZE,
-                    type: 'slow', // New type
-                    content: randomContent.toUpperCase(), // Store content (number/letter)
-                    hitTime: timestamp + blockTravelDuration,
-                    state: 'incoming', // Can be 'incoming', 'active', 'hit', 'missed'
-                    isSlicing: false,
-                    sliceProgress: 0,
-                    opacity: 1,
-                    isChain: false,
-                    isDouble: false,
-                    isBomb: false,
-                    bombProgress: 0,
-                    blockTravelDuration: blockTravelDuration
-                };
-                blocks.push(newSlowBlock);
-                activeSlowBlock = newSlowBlock; // Set the new slow block as the active one
-
-            } else if (blockTypeToSpawn === 'single') {
-                const laneType = Math.random() < 0.5 ? 'left' : 'right';
-                const isBomb = Math.random() < BOMB_INTEGRATION_CHANCE;
-
-                const xCenters = laneType === 'left' ? leftLaneCenters : rightLaneCenters;
-                const randomLaneX = xCenters[Math.floor(Math.random() * xCenters.length)];
-
-                blocks.push({
-                    x: randomLaneX,
-                    y: startY,
-                    size: INITIAL_BLOCK_SIZE,
-                    type: laneType, // Bomb's type MUST match its lane to get the correct base color
-                    hitTime: timestamp + blockTravelDuration,
-                    state: 'incoming',
-                    isSlicing: false,
-                    sliceProgress: 0,
-                    opacity: 1,
-                    isChain: false,
-                    isDouble: false,
-                    isBomb: isBomb,
-                    bombProgress: 0,
-                    blockTravelDuration: blockTravelDuration
-                });
-            } else if (blockTypeToSpawn === 'double') {
-                const currentDoubleId = doubleNoteCounter++;
-
-                blocks.push({
-                    x: leftLaneCenters[Math.floor(LANE_COUNT_PER_SIDE / 2)],
-                    y: startY,
-                    size: INITIAL_BLOCK_SIZE,
-                    type: 'left',
-                    hitTime: timestamp + blockTravelDuration,
-                    state: 'incoming',
-                    isSlicing: false,
-                    sliceProgress: 0,
-                    opacity: 1,
-                    isChain: false,
-                    isDouble: true,
-                    doubleId: currentDoubleId,
-                    isBomb: false,
-                    bombProgress: 0,
-                    blockTravelDuration: blockTravelDuration
-                });
-                blocks.push({
-                    x: rightLaneCenters[Math.floor(LANE_COUNT_PER_SIDE / 2)],
-                    y: startY,
-                    size: INITIAL_BLOCK_SIZE,
-                    type: 'right',
-                    hitTime: timestamp + blockTravelDuration,
-                    state: 'incoming',
-                    isSlicing: false,
-                    sliceProgress: 0,
-                    opacity: 1,
-                    isChain: false,
-                    isDouble: true,
-                    doubleId: currentDoubleId,
-                    isBomb: false,
-                    bombProgress: 0,
-                    blockTravelDuration: blockTravelDuration
-                });
-            } else if (blockTypeToSpawn === 'chain') {
-                const laneType = Math.random() < 0.5 ? 'left' : 'right';
-                const chainLength = Math.floor(Math.random() * (CHAIN_MAX_LENGTH - CHAIN_MIN_LENGTH + 1)) + CHAIN_MIN_LENGTH;
-
-                const xCenters = laneType === 'left' ? leftLaneCenters : rightLaneCenters;
-                const randomLaneX = xCenters[Math.floor(Math.random() * xCenters.length)];
-
-                for (let i = 0; i < chainLength; i++) {
-                    const isBomb = Math.random() < BOMB_INTEGRATION_CHANCE;
-                    blocks.push({
-                        x: randomLaneX,
-                        y: startY,
-                        size: INITIAL_BLOCK_SIZE,
-                        type: laneType, // Bomb's type MUST match its lane to get the correct base color
-                        hitTime: timestamp + blockTravelDuration + (i * CHAIN_OFFSET_TIME),
-                        state: 'incoming',
-                        isSlicing: false,
-                        sliceProgress: 0,
-                        opacity: 1,
-                        isChain: true,
-                        chainOrder: i,
-                        chainLength: chainLength,
-                        isDouble: false,
-                        isBomb: isBomb,
-                        bombProgress: 0,
-                        blockTravelDuration: blockTravelDuration
-                    });
-                }
-            }
-        }
-
-        // Update block positions, sizes, and states
-        function updateBlocks(deltaTime, currentTime) {
-            for (let i = blocks.length - 1; i >= 0; i--) {
-                const block = blocks[i];
-
-                // If block is already slicing, continue its animation until it disappears
-                if (block.isSlicing) {
-                    block.sliceProgress += deltaTime / 150;
-                    block.opacity = 1 - block.sliceProgress;
-                    if (block.opacity <= 0) {
-                        if (block.type === 'slow' && block === activeSlowBlock) {
-                            activeSlowBlock = null; // Clear active slow block reference
-                        }
-                        blocks.splice(i, 1);
-                    }
-                    continue;
-                }
-
-                // Calculate current Y position
-                const progress = (currentTime - (block.hitTime - block.blockTravelDuration)) / block.blockTravelDuration;
-                block.y = -INITIAL_BLOCK_SIZE + (TARGET_Y + INITIAL_BLOCK_SIZE) * progress;
-
-                // Update bomb visual progress
-                if (block.isBomb) {
-                    const appearanceStartProgress = 0.5;
-                    const appearanceEndProgress = 0.9;
-                    const currentVisualProgress = (block.y - (-INITIAL_BLOCK_SIZE)) / (TARGET_Y + INITIAL_BLOCK_SIZE);
-                    block.bombProgress = clamp((currentVisualProgress - appearanceStartProgress) / (appearanceEndProgress - appearanceStartProgress), 0, 1);
-                }
-
-                // For slow blocks, transition state to 'active' once visible
-                if (block.type === 'slow' && block.state === 'incoming' && block.y > -INITIAL_BLOCK_SIZE) {
-                    block.state = 'active';
-                }
-
-                // Check for misses (applies to all block types)
-                if (block.state === 'incoming' || block.state === 'active') { // Check both incoming and active states for miss
-                    const missWindowEnd = block.hitTime + HIT_PRECISION_WINDOW / 2;
-                    if (block.type === 'slow') {
-                        // Slow blocks miss if they pass the entire canvas height
-                        if (block.y > CANVAS_HEIGHT) {
-                            health -= HEALTH_LOSS_PER_MISS;
-                            updateHealthBar();
-                            resetCombo();
-                            createParticles(block.x, block.y, 'miss');
-                            createPopup(block.x, block.y, `MISS!`, '#ff007f'); // Miss for slow block
-                            block.isSlicing = true; // Make it disappear after missing
-                            activeSlowBlock = null; // Clear active slow block reference on miss
-                            console.log("SLOW BLOCK MISSED (passed screen): Health reduced, combo reset.");
-                        }
-                    } else { // Normal, double, chain, bomb blocks
-                        if (currentTime > missWindowEnd) {
-                            if (block.isBomb) {
-                                health = clamp(health + HEALTH_GAIN_ON_BOMB_MISS, 0, MAX_HEALTH);
-                                updateHealthBar();
-                                createParticles(block.x, TARGET_Y, 'health_gain');
-                                createPopup(block.x, block.y, `+${HEALTH_GAIN_ON_BOMB_MISS} Health!`, '#00ff00');
-                                block.isSlicing = true;
-                                console.log("BOMB MISSED (passed line): Health gained.");
-                            } else {
-                                health -= HEALTH_LOSS_PER_MISS;
-                                updateHealthBar();
-                                resetCombo();
-                                createParticles(block.x, TARGET_Y, 'miss');
-                                block.isSlicing = true;
-                                // Added a small offset to Tone.now() to ensure strictly increasing time
-                                if (hiHatSynth && typeof Tone !== 'undefined' && Tone.context.state === 'running') hiHatSynth.triggerAttackRelease("16n", Tone.now() + 0.0002);
-                                totalNotesHit++;
-                                updateAccuracyDisplay();
-                                console.log("NOTE MISSED (passed line): Health reduced, combo reset.");
-
-                                if (block.isDouble && block.doubleId !== undefined) {
-                                    const pairedBlock = blocks.find(b => b.doubleId === block.doubleId && b !== block && (b.state === 'incoming' || b.state === 'active'));
-                                    if (pairedBlock) {
-                                        pairedBlock.isSlicing = true;
-                                        pairedBlock.state = 'missed';
-                                        totalNotesHit++;
-                                        updateAccuracyDisplay();
-                                        console.log("PAIRED DOUBLE NOTE MISSED (passed line).");
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // Handle key presses for individual hits
-        function handleKeyPress(event) {
-            if (!gameActive || awaitingKeybind) return;
-
-            const keyPressed = event.key.toLowerCase();
-            const currentTime = performance.now();
-            if (currentTime === null || currentTime === undefined) {
-                console.error("Time source returned invalid time, skipping key press handler.");
-                return;
-            }
-
-            let slowBlockHandled = false;
-            let normalBlockHandled = false;
-
-            // 1. Prioritize handling the SINGLE active Slow Block
-            if (activeSlowBlock && activeSlowBlock.state === 'active' && !activeSlowBlock.isSlicing) {
-                if (keyPressed === activeSlowBlock.content.toLowerCase()) {
-                    // Correct key for slow block
-                    activeSlowBlock.state = 'hit';
-                    activeSlowBlock.isSlicing = true; // Start slicing animation
-                    const basePointsGained = 115; // Always max points for slow block
-                    score += Math.round(basePointsGained * COMBO_MULTIPLIERS[currentComboLevel]);
-                    updateScoreDisplay();
-                    health = clamp(health + HEALTH_REGEN_PER_HIT, 0, MAX_HEALTH);
-                    updateHealthBar();
-                    incrementCombo();
-                    createParticles(activeSlowBlock.x, activeSlowBlock.y, 'health_gain'); // Greenish particles for slow hit
-                    createPopup(activeSlowBlock.x, activeSlowBlock.y, `+${Math.round(basePointsGained * COMBO_MULTIPLIERS[currentComboLevel])} PERFECT!`, '#00ffcc');
-                    // Added a small offset to Tone.now() to ensure strictly increasing time
-                    if (kickSynth && typeof Tone !== 'undefined' && Tone.context.state === 'running') kickSynth.triggerAttackRelease("G4", "0.1", Tone.now() + 0.0003);
-                    activeSlowBlock = null; // Clear the reference as it's handled
-                    slowBlockHandled = true;
-                } else if (ALL_POSSIBLE_SLOW_KEYS.includes(keyPressed) && keyPressed !== keybinds['left'] && keyPressed !== keybinds['right']) {
-                    // Pressed a key that's meant for slow blocks, but it's the wrong key for *this* slow block.
-                    // Also ensures it's NOT a normal lane key.
-                    health -= HEALTH_LOSS_PER_MISS; // Deduct health
-                    updateHealthBar();
-                    resetCombo(); // Reset combo on wrong key
-                    createParticles(activeSlowBlock.x, activeSlowBlock.y, 'miss');
-                    createPopup(activeSlowBlock.x, activeSlowBlock.y, `- Health (Wrong Key)!`, '#ff007f');
-                    // Added a small offset to Tone.now() to ensure strictly increasing time
-                    if (hiHatSynth && typeof Tone !== 'undefined' && Tone.context.state === 'running') hiHatSynth.triggerAttackRelease("16n", Tone.now() + 0.0004);
-                    // Block does NOT get sliced, it remains to be hit correctly
-                    slowBlockHandled = true; // This keypress was an attempt at a slow block
-                }
-            }
-
-            if (slowBlockHandled) {
-                return; // If a slow block was successfully hit OR an incorrect slow key was pressed, stop here.
-            }
-
-            // 2. Handle Normal Blocks (if no relevant slow block interaction occurred)
-            let bestNormalBlock = null;
-            let minNormalTimeDiff = Infinity;
-
-            if (keyPressed === keybinds['left'] || keyPressed === keybinds['right']) {
-                // It's a lane key, now find the best normal block to hit
-                for (let i = blocks.length - 1; i >= 0; i--) {
-                    const block = blocks[i];
-                    // Only consider normal blocks (not slow blocks), incoming, and not slicing
-                    if (block.type !== 'slow' && block.state === 'incoming' && !block.isSlicing) {
-                        const hitWindowStart = block.hitTime - HIT_PRECISION_WINDOW / 2;
-                        const hitWindowEnd = block.hitTime + HIT_PRECISION_WINDOW / 2;
-
-                        if (currentTime >= hitWindowStart && currentTime <= hitWindowEnd) {
-                            let isKeyCorrect = false;
-                            if (block.type === 'left' && keyPressed === keybinds['left']) {
-                                isKeyCorrect = true;
-                            } else if (block.type === 'right' && keyPressed === keybinds['right']) {
-                                isKeyCorrect = true;
-                            } else if (block.isBomb && (keyPressed === keybinds['left'] || keyPressed === keybinds['right'])) {
-                                isKeyCorrect = true; // Hitting bomb with any lane key
-                            }
-
-                            if (isKeyCorrect) {
-                                const timeDiff = Math.abs(currentTime - block.hitTime);
-                                if (timeDiff < minNormalTimeDiff) {
-                                    minNormalTimeDiff = timeDiff;
-                                    bestNormalBlock = block;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            if (bestNormalBlock) {
-                normalBlockHandled = true;
-                const processedBlock = bestNormalBlock;
-                if (processedBlock.isBomb) {
-                    health -= HEALTH_LOSS_ON_BOMB_HIT;
-                    updateHealthBar();
-                    resetCombo();
-                    createParticles(processedBlock.x, processedBlock.y, 'bomb_hit');
-                    createPopup(processedBlock.x, processedBlock.y, `-${HEALTH_LOSS_ON_BOMB_HIT} Health!`, '#ff007f');
-                    processedBlock.isSlicing = true;
-                    // Added a small offset to Tone.now() to ensure strictly increasing time
-                    if (hiHatSynth && typeof Tone !== 'undefined' && Tone.context.state === 'running') hiHatSynth.triggerAttackRelease("16n", Tone.now() + 0.0005);
-                } else {
-                    processedBlock.state = 'hit';
-                    const timeDiff = Math.abs(currentTime - processedBlock.hitTime);
-                    const accuracyPercentage = clamp((1 - (timeDiff / (HIT_PRECISION_WINDOW / 2))) * 100, 0, 100);
-
-                    totalNotesHit++;
-                    totalAccuracySum += accuracyPercentage;
-                    updateAccuracyDisplay();
-
-                    const basePointsGained = MIN_ACCURACY_POINTS_PER_NOTE +
-                                             (MAX_ACCURACY_POINTS_PER_NOTE - MIN_ACCURACY_POINTS_PER_NOTE) * (accuracyPercentage / 100);
-                    score += Math.round(basePointsGained * COMBO_MULTIPLIERS[currentComboLevel]);
-                    updateScoreDisplay();
-
-                    health = clamp(health + HEALTH_REGEN_PER_HIT, 0, MAX_HEALTH);
-                    updateHealthBar();
-
-                    incrementCombo();
-                    createParticles(processedBlock.x, processedBlock.y, processedBlock.type);
-                    createPopup(processedBlock.x, processedBlock.y, `+${Math.round(basePointsGained * COMBO_MULTIPLIERS[currentComboLevel])} (${accuracyPercentage.toFixed(0)}%)`, blockColors[processedBlock.type]);
-                    processedBlock.isSlicing = true;
-                    // Added a small offset to Tone.now() to ensure strictly increasing time
-                    if (kickSynth && typeof Tone !== 'undefined' && Tone.context.state === 'running') kickSynth.triggerAttackRelease("C2", "0.1", Tone.now() + 0.0006);
-                }
-            }
-
-            // 3. Generic Miss (if a lane key was pressed but no block was hit)
-            // This happens only if no slow block interaction occurred AND no normal block was hit
-            if (!slowBlockHandled && !normalBlockHandled && (keyPressed === keybinds['left'] || keyPressed === keybinds['right'])) {
-                health -= HEALTH_LOSS_PER_MISS;
-                updateHealthBar();
-                resetCombo();
-                createParticles(CANVAS_WIDTH / 2, TARGET_Y, 'miss');
-                // Added a small offset to Tone.now() to ensure strictly increasing time
-                if (hiHatSynth && typeof Tone !== 'undefined' && Tone.context.state === 'running') hiHatSynth.triggerAttackRelease("16n", Tone.now() + 0.0007);
-            }
-        }
-
-        // Create particles for visual effects
-        function createParticles(x, y, type) {
-            const color = type === 'left' ? blockColors['left'] :
-                          type === 'right' ? blockColors['right'] :
-                          type === 'miss' ? '#ff007f' : // Miss particles are pink
-                          type === 'health_gain' ? '#00ffcc' : // Health gain particles are cyan
-                          type === 'bomb_hit' ? '#ff4500' : // Bomb hit particles are orange
-                          '#ffffff';
-            for (let i = 0; i < PARTICLE_COUNT_ON_HIT; i++) {
-                const angle = Math.random() * Math.PI * 2;
-                const speed = Math.random() * 5 + 2;
-                particles.push({
-                    x: x,
-                    y: y,
-                    vx: Math.cos(angle) * speed,
-                    vy: Math.sin(angle) * speed,
-                    radius: Math.random() * 5 + 2,
-                    color: color,
-                    opacity: 1,
-                    life: PARTICLE_LIFETIME
-                });
-            }
-        }
-
-        // Update and remove particles
-        function updateParticles(deltaTime) {
-            for (let i = particles.length - 1; i >= 0; i--) {
-                const p = particles[i];
-                p.x += p.vx;
-                p.y += p.vy;
-                p.life -= deltaTime;
-                p.opacity = clamp(p.life / PARTICLE_LIFETIME, 0, 1);
-                p.radius = clamp(p.radius * (p.life / PARTICLE_LIFETIME), 0.5, 10);
-
-                if (p.life <= 0) {
-                    particles.splice(i, 1);
-                }
-            }
-        }
-
-        // Create a floating score/accuracy popup
-        function createPopup(x, y, text, color) {
-            popups.push({
-                x: x,
-                y: y,
-                text: text,
-                color: color,
-                opacity: 1,
-                life: POPUP_LIFETIME
-            });
-        }
-
-        // Update and remove popups
-        function updatePopups(deltaTime) {
-            for (let i = popups.length - 1; i >= 0; i--) {
-                const popup = popups[i];
-                popup.y -= POPUP_MOVE_SPEED * deltaTime;
-                popup.life -= deltaTime;
-                popup.opacity = clamp(popup.life / POPUP_LIFETIME, 0, 1);
-
-                if (popup.life <= 0) {
-                    popups.splice(i, 1);
-                }
-            }
-        }
-
-
-        // --- Drawing Functions ---
-
-        // Draw game elements
-        function draw() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            // Apply filter if a slow block is active
-            if (activeSlowBlock && activeSlowBlock.state === 'active' && !activeSlowBlock.isSlicing) {
-                ctx.filter = 'blur(1px)'; // Apply blur to everything else
-            } else {
-                ctx.filter = 'none'; // No blur
-            }
-
-            // Draw pulsating target line (will be blurred if activeSlowBlock exists)
-            const pulseFactor = Math.sin(performance.now() / 200) * 0.1 + 1;
-            const gradientLine = ctx.createLinearGradient(0, 0, CANVAS_WIDTH, 0);
-            gradientLine.addColorStop(0, `rgba(0, 255, 255, ${0.3 * pulseFactor})`);
-            gradientLine.addColorStop(0.5, `rgba(255, 0, 255, ${0.8 * pulseFactor})`);
-            gradientLine.addColorStop(1, `rgba(0, 255, 255, ${0.3 * pulseFactor})`);
-            ctx.strokeStyle = gradientLine;
-            ctx.lineWidth = 3;
-            ctx.beginPath();
-            ctx.moveTo(0, TARGET_Y);
-            ctx.lineTo(CANVAS_WIDTH, TARGET_Y);
-            ctx.stroke();
-
-            // Store drawn double notes to prevent drawing cable twice
-            const drawnDoubleNotes = new Set();
-
-            // Draw all blocks *except* the active slow block if it exists and needs focus
-            blocks.filter(block => {
-                // If there's an activeSlowBlock, and this block IS that activeSlowBlock, exclude it from this first draw pass
-                return !(block.type === 'slow' && block === activeSlowBlock && block.state === 'active' && !block.isSlicing);
-            }).forEach(block => {
-                ctx.save();
-                ctx.translate(block.x, block.y);
-
-                const halfSize = block.size / 2;
-                const radius = halfSize * 0.2;
-
-                // Determine block color for gradient
-                let blockColor;
-                if (block.type === 'slow') {
-                    blockColor = blockColors['left']; // Slow blocks always use left color
-                } else {
-                    blockColor = blockColors[block.type]; // Normal blocks (including bombs) use their type's color
-                }
-
-                const gradient = ctx.createLinearGradient(-halfSize, -halfSize, halfSize, halfSize);
-                gradient.addColorStop(0, `${blockColor}80`);
-                gradient.addColorStop(0.5, blockColor);
-                gradient.addColorStop(1, `${blockColor}80`);
-
-                ctx.fillStyle = gradient;
-                ctx.shadowColor = blockColor;
-                ctx.shadowBlur = block.size * 0.3;
-
-                ctx.globalAlpha = block.opacity;
-
-                roundRect(ctx, -halfSize, -halfSize, block.size, block.size, radius);
-                ctx.fill();
-
-                if (block.isBomb) {
-                    ctx.save();
-                    ctx.lineWidth = 5;
-                    // Cross color is opposite of the block's base color
-                    const crossColor = block.type === 'left' ? blockColors['right'] : blockColors['left'];
-                    ctx.strokeStyle = crossColor;
-                    ctx.lineCap = 'round';
-                    ctx.shadowColor = crossColor;
-                    ctx.shadowBlur = 10;
-                    ctx.globalAlpha = block.bombProgress * block.opacity;
-
-                    const xOffset = halfSize * 0.6;
-                    const yOffset = halfSize * 0.6;
-
-                    ctx.beginPath();
-                    ctx.moveTo(-xOffset, -yOffset);
-                    ctx.lineTo(xOffset, yOffset);
-                    ctx.moveTo(xOffset, -yOffset);
-                    ctx.lineTo(-xOffset, yOffset);
-                    ctx.stroke();
-                    ctx.restore();
-                } else if (block.type === 'slow' && block.isSlicing) {
-                    // Draw content (number/letter) for slicing slow block (will be blurred)
-                    ctx.fillStyle = blockColors['right']; // Opposite color for text
-                    ctx.font = `bold ${block.size * 0.6}px Inter`;
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    ctx.shadowColor = 'rgba(0,0,0,0.5)';
-                    ctx.shadowBlur = 5;
-                    ctx.fillText(block.content, 0, 0);
-                }
-
-                ctx.globalAlpha = 1;
-                ctx.restore();
-            });
-
-            // Draw particles (will be blurred if activeSlowBlock exists)
-            particles.forEach(p => {
-                ctx.fillStyle = p.color;
-                ctx.globalAlpha = p.opacity;
-                ctx.beginPath();
-                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.globalAlpha = 1;
-            });
-
-            // Draw popups (will be blurred if activeSlowBlock exists)
-            popups.forEach(popup => {
-                ctx.save();
-                ctx.globalAlpha = popup.opacity;
-                ctx.fillStyle = popup.color;
-                ctx.font = 'bold 20px Inter';
-                ctx.textAlign = 'center';
-                ctx.shadowColor = 'rgba(0,0,0,0.5)';
-                ctx.shadowBlur = 5;
-                ctx.fillText(popup.text, popup.x, popup.y);
-                ctx.restore();
-            });
-
-            // Reset filter to none BEFORE drawing the focused slow block
-            ctx.filter = 'none';
-
-            // Draw the active slow block (if it exists and is active/not slicing)
-            if (activeSlowBlock && activeSlowBlock.state === 'active' && !activeSlowBlock.isSlicing) {
-                const block = activeSlowBlock;
-                ctx.save();
-                ctx.translate(block.x, block.y);
-
-                const halfSize = block.size / 2;
-                const radius = halfSize * 0.2;
-
-                const blockColor = blockColors['left']; // Slow block color is always left block color
-                const gradient = ctx.createLinearGradient(-halfSize, -halfSize, halfSize, halfSize);
-                gradient.addColorStop(0, `${blockColor}80`);
-                gradient.addColorStop(0.5, blockColor);
-                gradient.addColorStop(1, `${blockColor}80`);
-
-                ctx.fillStyle = gradient;
-                ctx.shadowColor = blockColor;
-                ctx.shadowBlur = block.size * 0.3;
-                ctx.globalAlpha = block.opacity;
-
-                roundRect(ctx, -halfSize, -halfSize, block.size, block.size, radius);
-                ctx.fill();
-
-                // Draw content (number/letter) for the FOCUSED slow block
-                ctx.fillStyle = blockColors['right']; // Opposite color for text
-                ctx.font = `bold ${block.size * 0.6}px Inter`;
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.shadowColor = 'rgba(0,0,0,0.5)';
-                ctx.shadowBlur = 5;
-                ctx.fillText(block.content, 0, 0);
-
-                ctx.globalAlpha = 1;
-                ctx.restore();
-            }
-        }
-
-        // Main game loop
-        let lastTime = 0;
-        function gameLoop(currentTime) {
-            const deltaTime = currentTime - lastTime;
-            lastTime = currentTime;
-
-            if (gameActive) {
-                // Update game level based on time
-                updateLevel(currentTime);
-
-                // Calculate current NJS and corresponding block travel duration
-                const currentNJS = BASE_NJS_VALUE + (level - 1) * NJS_PER_LEVEL_INCREASE;
-                const blockTravelDurationForNormal = BASE_BLOCK_TRAVEL_DURATION / (currentNJS / BASE_NJS_VALUE);
-
-                if (currentTime - lastBlockSpawnTime > blockSpawnInterval) {
-                    spawnBlock(currentTime);
-                    lastBlockSpawnTime = currentTime;
-                }
-
-                updateBlocks(deltaTime, currentTime);
-                updateParticles(deltaTime);
-                updatePopups(deltaTime);
-                draw();
-            }
-
-            animationFrameId = requestAnimationFrame(gameLoop);
-        }
-
-        // --- Leaderboard Functions ---
-        // This function now exclusively loads from local storage, for fallback or if user prefers local
-        function loadLeaderboardFromLocalStorage() {
-            const savedScores = localStorage.getItem('rhythmSlicerLeaderboard');
-            return savedScores ? JSON.parse(savedScores) : [];
-        }
-
-        async function saveScoreToLocalStorage(score, accuracy, initials) {
-             const leaderboard = loadLeaderboardFromLocalStorage();
-            const newEntry = {
-                score: score,
-                accuracy: parseFloat(accuracy.toFixed(2)),
-                date: new Date().toLocaleString(),
-                level: level, // Save the level achieved
-                username: initials || "AAA" // Use initials or default
-            };
-
-            // Check if the new score should be added
-            if (leaderboard.length < 10) {
-                leaderboard.push(newEntry);
-            } else {
-                // If leaderboard is full, check if new score is higher than the lowest score
-                const lowestScore = leaderboard[leaderboard.length - 1].score;
-                if (newEntry.score > lowestScore) {
-                    leaderboard.pop(); // Remove the lowest score
-                    leaderboard.push(newEntry); // Add the new higher score
-                }
-            }
-
-            // Client-side sort to ensure consistent order for local storage
-            leaderboard.sort((a, b) => {
-                if (b.score !== a.score) return b.score - a.score;
-                if (b.accuracy !== a.accuracy) return b.accuracy - a.accuracy;
-                return new Date(b.date).getTime() - new Date(a.date).getTime();
-            });
-            const topScores = leaderboard.slice(0, 10); // Ensure only top 10 are kept after sorting
-            localStorage.setItem('rhythmSlicerLeaderboard', JSON.stringify(topScores));
-            console.log("Score saved to local storage:", newEntry);
-        }
-
-        async function saveScore(score, accuracy, userInitials) {
-            if (!db || !isAuthReady) {
-                console.warn("Firebase is not ready. Score will only be saved to local storage.");
-                saveScoreToLocalStorage(score, accuracy, userInitials);
-                return;
-            }
-
-            const initialsToUse = userInitials ? userInitials.toUpperCase() : "AAA"; // Ensure uppercase and default
-
-            const newEntry = {
-                score: score,
-                accuracy: parseFloat(accuracy.toFixed(2)),
-                level: level,
-                userId: userId, // Current anonymous user ID
-                username: initialsToUse, // Use the provided initials as username
-                timestamp: serverTimestamp() // Use server timestamp for consistent ordering
-            };
-
-            const leaderboardRef = collection(db, `artifacts/${appId}/public/data/leaderboard`);
-
+        window.onload = async () => {
             try {
-                // First, check the current top 10 scores
-                const q = query(leaderboardRef, orderBy("score", "desc"), limit(10));
-                const querySnapshot = await getDocs(q);
-                const currentScores = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                // Initialize Firebase with the embedded config
+                window.firebaseApp = initializeApp(firebaseConfig);
+                window.db = getFirestore(window.firebaseApp);
+                window.auth = getAuth(window.firebaseApp);
 
-                let shouldAdd = false;
-                let lowestScoreId = null;
-                let lowestScoreEntry = null;
+                // Show loading indicator or splash screen while authenticating
+                const loadingOverlay = document.getElementById('loadingOverlay');
+                loadingOverlay.classList.remove('hidden');
 
-                if (currentScores.length < 10) {
-                    shouldAdd = true;
-                } else {
-                    currentScores.sort((a, b) => {
-                        if (a.score !== b.score) return a.score - b.score; // Ascending score for finding lowest
-                        const timestampA = a.timestamp ? a.timestamp.toDate().getTime() : 0;
-                        const timestampB = b.timestamp ? b.timestamp.toDate().getTime() : 0;
-                        return timestampA - timestampB;
-                    });
-                    lowestScoreEntry = currentScores[0];
-                    if (newEntry.score > lowestScoreEntry.score) {
-                        shouldAdd = true;
-                        lowestScoreId = lowestScoreEntry.id;
-                    } else if (newEntry.score === lowestScoreEntry.score && newEntry.accuracy > lowestScoreEntry.accuracy) {
-                        shouldAdd = true;
-                        lowestScoreId = lowestScoreEntry.id;
-                    }
-                }
-
-                if (shouldAdd) {
-                    if (lowestScoreId) {
-                        await deleteDoc(doc(db, `artifacts/${appId}/public/data/leaderboard`, lowestScoreId));
-                        console.log(`Removed lowest score ${lowestScoreEntry.score} (ID: ${lowestScoreId}) from leaderboard.`);
-                    }
-                    await addDoc(leaderboardRef, newEntry);
-                    console.log("Score saved to Firestore:", newEntry);
-                } else {
-                    console.log("Score not high enough to be added to global leaderboard.");
-                }
-            } catch (e) {
-                console.error("Error saving score to Firestore:", e);
-                // The score is already saved locally if Firestore save fails
-            }
-        }
-
-        // This function sets up a real-time listener for the global leaderboard
-        function setupLeaderboardListener() {
-            if (!db) {
-                console.warn("Firestore not initialized for leaderboard listener.");
-                leaderboardLoading.textContent = 'Leaderboard not available (Firebase not initialized).';
-                // Render local scores as a fallback immediately
-                renderLeaderboard(loadLeaderboardFromLocalStorage());
-                return;
-            }
-
-            const leaderboardRef = collection(db, `artifacts/${appId}/public/data/leaderboard`);
-            const q = query(leaderboardRef, orderBy("score", "desc"), limit(10));
-
-            onSnapshot(q, (snapshot) => {
-                console.log("Leaderboard update received from Firestore.");
-                const leaderboard = [];
-                snapshot.forEach((doc) => {
-                    const data = doc.data();
-                    leaderboard.push({
-                        id: doc.id,
-                        score: data.score,
-                        accuracy: data.accuracy,
-                        level: data.level,
-                        // userId: data.userId, // Can remove if not needed for display
-                        username: data.username || 'AAA', // Get username (initials), fallback to AAA
-                        date: data.timestamp ? new Date(data.timestamp.toDate()).toLocaleString() : 'N/A' // Convert timestamp
-                    });
-                });
-
-                // Client-side sort to ensure correct ordering by score, then accuracy, then date
-                leaderboard.sort((a, b) => {
-                    if (b.score !== a.score) return b.score - a.score;
-                    // Secondary sort for accuracy (higher accuracy first)
-                    if (b.accuracy !== a.accuracy) return b.accuracy - a.accuracy;
-                    // Tertiary sort by date (newer dates first) for ties
-                    const dateA = a.date !== 'N/A' ? new Date(a.date).getTime() : 0;
-                    const dateB = b.date !== 'N/A' ? new Date(b.date).getTime() : 0;
-                    return dateB - dateA;
-                });
-
-                renderLeaderboard(leaderboard); // Render the fetched and sorted data
-                leaderboardLoading.style.display = 'none'; // Hide loading indicator
-            }, (error) => {
-                console.error("Error fetching leaderboard from Firestore:", error);
-                leaderboardLoading.textContent = 'Error loading global leaderboard. Displaying local scores.';
-                // Fallback to local storage display if Firestore fails
-                renderLeaderboard(loadLeaderboardFromLocalStorage());
-            });
-        }
-
-        // Function to render the leaderboard to the DOM
-        function renderLeaderboard(leaderboardData) {
-            leaderboardList.innerHTML = '';
-
-            if (leaderboardData.length === 0) {
-                leaderboardList.innerHTML = '<p class="text-center text-gray-400">No scores yet! Play a game to get on the leaderboard.</p>';
-                return;
-            }
-
-            leaderboardData.forEach((entry, index) => {
-                const entryDiv = document.createElement('div');
-                entryDiv.classList.add('leaderboard-entry');
-
-                // Display username (initials)
-                const displayUserName = entry.username;
-                entryDiv.innerHTML = `
-                    <span>${index + 1}. Score: ${entry.score} (Lvl ${entry.level})</span>
-                    <span>Acc: ${entry.accuracy}%</span>
-                    <span class="text-xs text-gray-500 ml-2">Initials: ${displayUserName}</span>
-                `;
-                leaderboardList.appendChild(entryDiv);
-            });
-        }
-
-
-        // --- Firebase Initialization (Modified for Anonymous Auth) ---
-        async function initializeFirebase() {
-            if (!firebaseConfig.apiKey || firebaseConfig.apiKey === "YOUR_API_KEY" || !firebaseConfig.projectId) {
-                console.warn("Firebase config is not set correctly. Please paste your actual Firebase config (especially API Key and Project ID) in the script. Features relying on Firestore will not work.");
-                userId = crypto.randomUUID(); // Assign a temporary ID for local use
-                username = "Guest";
-                isAuthReady = true;
-                setupLeaderboardListener(); // Still call, it will fallback to local storage
-                return;
-            }
-
-            try {
-                app = initializeApp(firebaseConfig);
-                db = getFirestore(app);
-                auth = getAuth(app);
-
-                onAuthStateChanged(auth, async (user) => {
+                // Listen for auth state changes
+                onAuthStateChanged(window.auth, async (user) => {
                     if (user) {
-                        userId = user.uid;
-                        username = "Anonymous"; // No display name for anonymous users by default
-                        console.log("Firebase user state changed: Logged in anonymously.");
-                    } else {
-                        // If no user, sign in anonymously
+                        window.userId = user.uid; // Set global userId
+                        document.getElementById('displayUserId').textContent = `User ID: ${window.userId}`;
+                        console.log("Authenticated as:", window.userId);
+
                         try {
-                            const anonymousUserCredential = await signInAnonymously(auth);
-                            userId = anonymousUserCredential.user.uid;
-                            username = "Anonymous";
-                            console.log("Firebase anonymous sign-in successful.");
-                        } catch (anonError) {
-                            console.error("Error signing in anonymously:", anonError);
-                            userId = crypto.randomUUID(); // Fallback to random ID if anonymous sign-in fails
-                            username = "Guest";
+                            // Check if password has been set for this anonymous user
+                            const userProfileRef = doc(window.db, 'artifacts', window.appId, 'users', window.userId, 'settings', 'userProfile');
+                            console.log("Attempting to fetch user profile for:", window.userId);
+                            const userProfileSnap = await getDoc(userProfileRef);
+                            console.log("User profile snapshot exists:", userProfileSnap.exists());
+
+                            loadingOverlay.classList.add('hidden'); // Hide loading
+
+                            if (userProfileSnap.exists() && userProfileSnap.data().passwordHash) {
+                                // Password already set, hide auth modal, show app
+                                document.getElementById('authModal').classList.add('hidden');
+                                document.getElementById('mainAppContent').classList.remove('hidden');
+                                showMessage("Welcome back! Loading your notes...");
+                                setupNoteListeners(); // Start listening for notes
+                                attachMainAppEventListeners(); // Attach event listeners for main app elements
+                            } else {
+                                // First time or password not set, show password creation modal
+                                document.getElementById('authModal').classList.remove('hidden');
+                                document.getElementById('mainAppContent').classList.add('hidden');
+                                document.getElementById('passwordForm').classList.remove('hidden'); // Show set password form
+                                document.getElementById('loginForm').classList.add('hidden'); // Hide login form
+                                document.getElementById('authMessage').textContent = 'Welcome! Please set a password to secure your notes.';
+                            }
+                        } catch (profileError) {
+                            console.error("Error fetching user profile:", profileError);
+                            showMessage(`Failed to load profile: ${profileError.message}. Please check Firebase rules.`);
+                            loadingOverlay.classList.add('hidden'); // Ensure loading is hidden on profile fetch error
+                        }
+                    } else {
+                        // Not authenticated, sign in anonymously
+                        try {
+                            await signInAnonymously(window.auth);
+                            console.log("Signed in anonymously.");
+                        } catch (error) {
+                            console.error("Firebase Auth Error:", error);
+                            showMessage(`Authentication failed: ${error.message}`);
+                            loadingOverlay.classList.add('hidden');
                         }
                     }
-                    isAuthReady = true;
-                    // Start listening to leaderboard updates only after auth is ready
-                    setupLeaderboardListener();
                 });
-            } catch (error) {
-                console.error("Error initializing Firebase:", error);
-                userId = crypto.randomUUID(); // Fallback to random ID if Firebase init fails
-                username = "Guest";
-                isAuthReady = true; // Mark as ready to allow game to proceed
-            }
-        }
 
+                // Function to hash password (client-side)
+                async function hashPassword(password) {
+                    const textEncoder = new TextEncoder();
+                    const data = textEncoder.encode(password);
+                    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+                    const hashArray = Array.from(new Uint8Array(hashBuffer));
+                    const hashedPassword = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+                    return hashedPassword;
+                }
 
-        // --- Event Listeners ---
-        window.addEventListener('load', () => {
-            initCanvas();
-            startScreen.style.display = 'flex'; // Show main menu initially
-            gameContainer.style.display = 'none'; // Hide game container initially
-            leaderboardScreen.style.display = 'none'; // Hide leaderboard screen initially
-
-            // Load saved settings
-            const savedKeybinds = JSON.parse(localStorage.getItem('keybinds'));
-            if (savedKeybinds) {
-                keybinds = savedKeybinds;
-                // Re-initialize ALL_POSSIBLE_SLOW_KEYS after loading keybinds
-                ALL_POSSIBLE_SLOW_KEYS.length = 0; // Clear existing
-                Array.from({length: 26}, (_, i) => String.fromCharCode(97 + i)) // a-z
-                    .concat(Array.from({length: 10}, (_, i) => String.fromCharCode(48 + i))) // 0-9
-                    .filter(key => key !== keybinds['left'] && key !== keybinds['right'])
-                    .forEach(key => ALL_POSSIBLE_SLOW_KEYS.push(key));
-            }
-
-            const savedColors = JSON.parse(localStorage.getItem('blockColors'));
-            if (savedColors) blockColors = savedColors;
-            const savedMusicUrl = localStorage.getItem('musicUrl');
-            if (savedMusicUrl) musicUrlInput.value = savedMusicUrl;
-
-            // Update UI with loaded settings
-            leftKeyDisplay.textContent = keybinds['left'].toUpperCase();
-            rightKeyDisplay.textContent = keybinds['right'].toUpperCase();
-            leftColorPicker.value = blockColors['left'];
-            rightColorPicker.value = blockColors['right'];
-            if (musicUrlInput.value) {
-                backgroundMusic.src = musicUrlInput.value;
-            }
-
-            // Initially show controls section
-            showSettingsSection('controls');
-
-            // Initialize Firebase here (will sign in anonymously)
-            initializeFirebase();
-        });
-
-        startGameBtn.addEventListener('click', () => {
-            if (typeof Tone !== 'undefined' && Tone.context.state !== 'running') {
-                Tone.start().then(() => {
-                    console.log("Tone.js AudioContext started successfully.");
-                    setupAudioSynths();
-                    resetGame();
-                }).catch(e => {
-                    console.error("Error starting Tone.js AudioContext:", e);
-                    resetGame();
-                });
-            } else {
-                setupAudioSynths();
-                resetGame();
-            }
-        });
-
-        restartGameBtn.addEventListener('click', () => {
-            if (typeof Tone !== 'undefined' && Tone.context.state !== 'running') {
-                Tone.start().then(() => {
-                    console.log("Tone.js AudioContext started successfully on restart.");
-                    setupAudioSynths();
-                    resetGame();
-                }).catch(e => {
-                    console.error("Error starting Tone.js AudioContext on restart:", e);
-                    resetGame();
-                });
-            } else {
-                setupAudioSynths();
-                resetGame();
-            }
-        });
-
-        // Event listener for Options button on main menu
-        mainMenuOptionsBtn.addEventListener('click', openSettings);
-
-        // Event listener for Return to Main Menu from game over screen
-        gameOverReturnToMainBtn.addEventListener('click', () => {
-            gameOverScreen.style.display = 'none';
-            startScreen.style.display = 'flex';
-            gameActive = false; // Ensure game is not active
-            if (animationFrameId) {
-                cancelAnimationFrame(animationFrameId);
-            }
-            backgroundMusic.pause();
-            backgroundMusic.currentTime = 0;
-        });
-
-        // Event listeners for Leaderboard buttons
-        leaderboardButtonMain.addEventListener('click', () => {
-            startScreen.style.display = 'none';
-            gameOverScreen.style.display = 'none';
-            settingsModal.style.display = 'none';
-            gameContainer.style.display = 'none';
-            leaderboardScreen.style.display = 'flex';
-            leaderboardLoading.style.display = 'block'; // Show loading
-            setupLeaderboardListener(); // Ensure listener is active and fetches latest data
-        });
-
-        leaderboardReturnToMainBtn.addEventListener('click', () => {
-            leaderboardScreen.style.display = 'none';
-            startScreen.style.display = 'flex';
-        });
-
-        // Event listener for Submit Score button
-        submitScoreBtn.addEventListener('click', () => {
-            const initials = initialsInput.value.trim().toUpperCase();
-            if (initials.length === 3 && /^[A-Z0-9]+$/.test(initials)) {
-                saveScore(score, getOverallAccuracy(), initials);
-                initialsInput.style.display = 'none'; // Hide input after submission
-                submitScoreBtn.style.display = 'none'; // Hide button after submission
-                // Optionally, automatically show leaderboard or return to main menu
-                leaderboardButtonMain.click(); // Go to leaderboard
-            } else {
-                alert('Please enter exactly 3 alphanumeric characters for your initials.');
-            }
-        });
-
-
-        // Event listener for Return to Main Menu from settings modal
-        returnToMainMenuSettingsBtn.addEventListener('click', () => {
-            settingsModal.style.display = 'none';
-            startScreen.style.display = 'flex';
-            gameActive = false; // Ensure game is not active if returning to main menu
-            if (animationFrameId) {
-                cancelAnimationFrame(animationFrameId);
-            }
-            backgroundMusic.pause();
-            backgroundMusic.currentTime = 0;
-        });
-
-        // Global key tracking
-        document.addEventListener('keydown', (event) => {
-            keysPressed[event.key.toLowerCase()] = true;
-            if (!awaitingKeybind && settingsModal.style.display === 'flex') {
-                if (event.key === 'Escape') {
-                    // If game was active before settings, resume game, else go to main menu
-                    if (gameWasActiveBeforeSettings) {
-                        closeSettingsModal(true); // Close and resume game
-                    } else {
-                        returnToMainMenuSettingsBtn.click(); // Go back to main menu
+                // Password Setup/Login Handlers
+                document.getElementById('setPasswordBtn').addEventListener('click', async () => {
+                    const passwordInput = document.getElementById('newPassword').value;
+                    const confirmPasswordInput = document.getElementById('confirmNewPassword').value;
+                    if (passwordInput.length < 8) {
+                        showMessage("Password must be at least 8 characters long.");
+                        return;
                     }
-                }
-                return;
-            }
-            if (!awaitingKeybind && gameActive) { // Only handle game keys if game is active and not in keybind mode
-                handleKeyPress(event);
-            }
-        });
-        document.addEventListener('keyup', (event) => {
-            keysPressed[event.key.toLowerCase()] = false;
-        });
-
-
-        // Function to open settings, now universal
-        function openSettings() {
-            gameWasActiveBeforeSettings = gameActive; // Store current game state
-            gameActive = false; // Pause game
-            cancelAnimationFrame(animationFrameId); // Stop game loop
-            backgroundMusic.pause(); // Pause music
-
-            settingsModal.style.display = 'flex';
-            leftKeyDisplay.textContent = keybinds['left'].toUpperCase();
-            rightKeyDisplay.textContent = keybinds['right'].toUpperCase();
-            leftColorPicker.value = blockColors['left'];
-            rightColorPicker.value = blockColors['right'];
-            musicUrlInput.value = backgroundMusic.src;
-
-            // Hide main game containers
-            startScreen.style.display = 'none';
-            gameOverScreen.style.display = 'none';
-            gameContainer.style.display = 'none';
-            leaderboardScreen.style.display = 'none'; // Hide leaderboard screen too
-        }
-
-        // Modified close settings function
-        function closeSettingsModal(resumeGame = false) {
-            settingsModal.style.display = 'none';
-            if (resumeGame && gameWasActiveBeforeSettings) {
-                gameActive = true;
-                gameContainer.style.display = 'flex'; // Show game container
-                gameLoop(performance.now());
-                if (backgroundMusic.src && backgroundMusic.src !== window.location.href + '/') { // Check if valid music URL is loaded
-                     backgroundMusic.play().catch(e => console.error("Error resuming music:", e));
-                }
-            } else {
-                // If not resuming game, or game wasn't active, show main menu
-                startScreen.style.display = 'flex';
-                gameContainer.style.display = 'none'; // Ensure game container is hidden
-                gameActive = false; // Explicitly set to false
-                if (animationFrameId) {
-                    cancelAnimationFrame(animationFrameId);
-                }
-                backgroundMusic.pause();
-                backgroundMusic.currentTime = 0;
-            }
-        }
-
-
-        leftKeyDisplay.addEventListener('click', () => {
-            leftKeyDisplay.textContent = 'Press a key...';
-            awaitingKeybind = 'left';
-        });
-
-        rightKeyDisplay.addEventListener('click', () => {
-            rightKeyDisplay.textContent = 'Press a key...';
-            awaitingKeybind = 'right';
-        });
-
-        // Event listener for remapping keys
-        document.addEventListener('keydown', (event) => {
-            if (awaitingKeybind) {
-                const newKey = event.key.toLowerCase();
-                // Prevent common control keys from being remapped accidentally
-                if (['escape', 'tab', 'shift', 'control', 'alt', 'meta', 'f5', 'f11'].includes(newKey) ||
-                    (newKey === keybinds['left'] && awaitingKeybind !== 'left') ||
-                    (newKey === keybinds['right'] && awaitingKeybind !== 'right')) {
-                    // If an invalid key is pressed, revert display and reset awaitingKeybind
-                    if (awaitingKeybind === 'left') {
-                        leftKeyDisplay.textContent = keybinds['left'].toUpperCase();
-                    } else {
-                        rightKeyDisplay.textContent = keybinds['right'].toUpperCase();
+                    if (passwordInput !== confirmPasswordInput) {
+                        showMessage("Passwords do not match.");
+                        return;
                     }
-                    awaitingKeybind = null;
-                    event.preventDefault();
-                    return;
-                }
 
-                keybinds[awaitingKeybind] = newKey;
-                localStorage.setItem('keybinds', JSON.stringify(keybinds));
-                // Re-initialize ALL_POSSIBLE_SLOW_KEYS after keybinds are updated
-                ALL_POSSIBLE_SLOW_KEYS.length = 0; // Clear existing
-                Array.from({length: 26}, (_, i) => String.fromCharCode(97 + i)) // a-z
-                    .concat(Array.from({length: 10}, (_, i) => String.fromCharCode(48 + i))) // 0-9
-                    .filter(key => key !== keybinds['left'] && key !== keybinds['right'])
-                    .forEach(key => ALL_POSSIBLE_SLOW_KEYS.push(key));
+                    try {
+                        const hashedPassword = await hashPassword(passwordInput);
+                        const userProfileRef = doc(window.db, 'artifacts', window.appId, 'users', window.userId, 'settings', 'userProfile');
+                        await setDoc(userProfileRef, { passwordHash: hashedPassword, createdAt: new Date().toISOString() }, { merge: true });
+                        document.getElementById('authModal').classList.add('hidden');
+                        document.getElementById('mainAppContent').classList.remove('hidden');
+                        showMessage("Password set successfully! Welcome to your notes.");
+                        setupNoteListeners(); // Start listening for notes
+                        attachMainAppEventListeners(); // Attach event listeners for main app elements
+                    } catch (error) {
+                        console.error("Error setting password:", error);
+                        showMessage(`Failed to set password: ${error.message}`);
+                    }
+                });
 
-                if (awaitingKeybind === 'left') {
-                    leftKeyDisplay.textContent = newKey.toUpperCase();
-                } else {
-                    rightKeyDisplay.textContent = newKey.toUpperCase();
-                }
-                awaitingKeybind = null;
-                event.preventDefault();
-            }
-        });
+                document.getElementById('loginBtn').addEventListener('click', async () => {
+                    const passwordInput = document.getElementById('loginPassword').value;
+                    if (passwordInput.length === 0) {
+                        showMessage("Please enter your password.");
+                        return;
+                    }
 
-        leftColorPicker.addEventListener('input', (event) => {
-            blockColors['left'] = event.target.value;
-            localStorage.setItem('blockColors', JSON.stringify(blockColors));
-        });
+                    try {
+                        const userProfileRef = doc(window.db, 'artifacts', window.appId, 'users', window.userId, 'settings', 'userProfile');
+                        const userProfileSnap = await getDoc(userProfileRef);
 
-        rightColorPicker.addEventListener('input', (event) => {
-            blockColors['right'] = event.target.value;
-            localStorage.setItem('blockColors', JSON.stringify(blockColors));
-        });
+                        if (userProfileSnap.exists() && userProfileSnap.data().passwordHash) {
+                            const storedHash = userProfileSnap.data().passwordHash;
+                            const enteredHash = await hashPassword(passwordInput);
 
+                            if (storedHash === enteredHash) {
+                                document.getElementById('authModal').classList.add('hidden');
+                                document.getElementById('mainAppContent').classList.remove('hidden');
+                                showMessage("Login successful! Welcome back.");
+                                setupNoteListeners(); // Start listening for notes
+                                attachMainAppEventListeners(); // Attach event listeners for main app elements
+                            } else {
+                                showMessage("Incorrect password. Please try again.");
+                            }
+                        } else {
+                            showMessage("No password set for this user. Please set one first.");
+                        }
+                    } catch (error) {
+                        console.error("Error logging in:", error);
+                        showMessage(`Login failed: ${error.message}`);
+                    }
+                });
 
-        playMusicBtn.addEventListener('click', () => {
-            const musicUrl = musicUrlInput.value;
-            if (musicUrl) {
-                backgroundMusic.src = musicUrl;
-                // Ensure Tone.js AudioContext is running before trying to play music
-                if (typeof Tone !== 'undefined' && Tone.context.state !== 'running') {
-                    Tone.start().then(() => {
-                        console.log("Tone.js AudioContext started successfully for music.");
-                        backgroundMusic.play().catch(e => console.error("Error playing music:", e));
-                    }).catch(e => {
-                        console.error("Error starting Tone.js AudioContext for music:", e);
+                // Toggle between set password and login forms
+                document.getElementById('showLoginLink').addEventListener('click', (e) => {
+                    e.preventDefault();
+                    document.getElementById('passwordForm').classList.add('hidden');
+                    document.getElementById('loginForm').classList.remove('hidden');
+                    document.getElementById('authMessage').textContent = 'Please enter your password to access your notes.';
+                });
+
+                document.getElementById('showSetPasswordLink').addEventListener('click', (e) => {
+                    e.preventDefault();
+                    document.getElementById('loginForm').classList.add('hidden');
+                    document.getElementById('passwordForm').classList.remove('hidden');
+                    document.getElementById('authMessage').textContent = 'Welcome! Please set a password to secure your notes.';
+                });
+
+                // Function to attach event listeners for main app content once it's visible
+                function attachMainAppEventListeners() {
+                    // Logout button functionality
+                    document.getElementById('logoutBtn').addEventListener('click', async () => {
+                        try {
+                            await signOut(window.auth);
+                            showMessage("Logged out successfully. You can close this tab or sign in again.");
+                            // Clear UI and show auth modal again
+                            document.getElementById('notes-canvas').innerHTML = ''; // Clear notes
+                            document.getElementById('mainAppContent').classList.add('hidden');
+                            document.getElementById('authModal').classList.remove('hidden');
+                            document.getElementById('loginForm').classList.remove('hidden'); // Show login form
+                            document.getElementById('passwordForm').classList.add('hidden'); // Hide set password form
+                            document.getElementById('authMessage').textContent = 'Please enter your password to access your notes.';
+                        } catch (error) {
+                            console.error("Logout error:", error);
+                            showMessage(`Logout failed: ${error.message}`);
+                        }
                     });
-                } else {
-                    backgroundMusic.play().catch(e => console.error("Error playing music:", e));
+
+                    // Add Category button event listener
+                    document.getElementById('addCategoryBtn').addEventListener('click', async () => {
+                        if (!window.userId) { showMessage("Please authenticate first."); return; }
+                        const categoryName = prompt("Enter category name:");
+                        if (categoryName) {
+                            try {
+                                // Add a new category document to Firestore
+                                const newCategoryRef = await addDoc(collection(window.db, 'artifacts', window.appId, 'users', window.userId, 'categories'), {
+                                    name: categoryName,
+                                    x: 50, // Default position
+                                    y: 50, // Default position
+                                    width: 300,
+                                    height: 200,
+                                    zIndex: currentZIndex + 1,
+                                    createdAt: new Date().toISOString()
+                                });
+                                showMessage(`Category "${categoryName}" added!`);
+                            } catch (error) {
+                                console.error("Error adding category:", error);
+                                showMessage(`Failed to add category: ${error.message}`);
+                            }
+                        }
+                    });
                 }
-                localStorage.setItem('musicUrl', musicUrl);
-            } else {
-                backgroundMusic.pause();
-                backgroundMusic.src = ''; // Clear source
-                localStorage.removeItem('musicUrl');
+
+
+                // --- Note/Category App Logic ---
+                const notesCanvas = document.getElementById('notes-canvas');
+                let activeDragElement = null;
+                let isResizing = false; // This variable is not actively used for custom resize logic but kept for context.
+                let initialX, initialY;
+                let currentZIndex = 10; // To manage layering of elements
+
+                // Function to bring an element to the front
+                function bringToFront(element) {
+                    currentZIndex++;
+                    element.style.zIndex = currentZIndex;
+                }
+
+                // Function to create a category DOM element
+                function createCategoryElement(categoryData) {
+                    const categoryBox = document.createElement('div');
+                    categoryBox.className = 'category-box';
+                    categoryBox.id = `category-${categoryData.id}`;
+                    categoryBox.style.left = `${categoryData.x}px`;
+                    categoryBox.style.top = `${categoryData.y}px`;
+                    categoryBox.style.width = `${categoryData.width}px`;
+                    categoryBox.style.height = `${categoryData.height}px`;
+                    categoryBox.style.zIndex = categoryData.zIndex || 10;
+                    bringToFront(categoryBox); // Bring newly created/updated to front
+
+                    categoryBox.innerHTML = `
+                        <div class="category-header">
+                            <span contenteditable="true" class="category-name-edit">${categoryData.name}</span>
+                            <div class="flex space-x-2">
+                                <button class="add-note-btn">Add Note</button>
+                                <button class="delete-btn">X</button>
+                            </div>
+                        </div>
+                        <div class="category-notes-container" id="notes-in-category-${categoryData.id}">
+                            <!-- Notes will be appended here -->
+                        </div>
+                    `;
+
+                    // Handle dragging for the category box (header part)
+                    const header = categoryBox.querySelector('.category-header');
+                    header.addEventListener('mousedown', (e) => {
+                        // Check if click is on buttons or editable text within the header
+                        if (e.target.classList.contains('add-note-btn') || e.target.classList.contains('delete-btn') || e.target.classList.contains('category-name-edit')) {
+                            return; // Don't initiate drag if clicking on these specific elements
+                        }
+                        activeDragElement = categoryBox;
+                        initialX = e.clientX - categoryBox.getBoundingClientRect().left;
+                        initialY = e.clientY - categoryBox.getBoundingClientRect().top;
+                        bringToFront(categoryBox); // Bring dragged category to front
+                    });
+
+                    // Update category name
+                    const categoryNameEdit = categoryBox.querySelector('.category-name-edit');
+                    categoryNameEdit.addEventListener('blur', async () => {
+                        const newName = categoryNameEdit.textContent.trim();
+                        if (newName !== categoryData.name) {
+                            try {
+                                await updateDoc(doc(window.db, 'artifacts', window.appId, 'users', window.userId, 'categories', categoryData.id), {
+                                    name: newName
+                                });
+                                showMessage(`Category name updated to "${newName}".`);
+                            } catch (error) {
+                                console.error("Error updating category name:", error);
+                                showMessage("Failed to update category name.");
+                            }
+                        }
+                    });
+
+                    // Delete category button
+                    categoryBox.querySelector('.delete-btn').addEventListener('click', async () => {
+                        // Using custom modal message instead of browser's confirm()
+                        const confirmationModal = document.createElement('div');
+                        confirmationModal.className = 'modal-overlay';
+                        confirmationModal.innerHTML = `
+                            <div class="modal-content">
+                                <p class="text-lg mb-4">Are you sure you want to delete category "${categoryData.name}" and all its notes?</p>
+                                <div class="flex justify-center space-x-4">
+                                    <button id="confirmDeleteCategory" class="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600">Yes, Delete</button>
+                                    <button id="cancelDeleteCategory" class="bg-gray-300 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-400">Cancel</button>
+                                </div>
+                            </div>
+                        `;
+                        document.body.appendChild(confirmationModal);
+
+                        document.getElementById('confirmDeleteCategory').addEventListener('click', async () => {
+                            try {
+                                // Delete all notes within this category first
+                                const notesQuery = query(collection(window.db, 'artifacts', window.appId, 'users', window.userId, 'notes'), where("categoryId", "==", categoryData.id));
+                                const notesSnapshot = await getDocs(notesQuery);
+                                const deleteNotePromises = notesSnapshot.docs.map(nDoc => deleteDoc(nDoc.ref));
+                                await Promise.all(deleteNotePromises);
+
+                                // Then delete the category itself
+                                await deleteDoc(doc(window.db, 'artifacts', window.appId, 'users', window.userId, 'categories', categoryData.id));
+                                showMessage(`Category "${categoryData.name}" and its notes deleted.`);
+                            } catch (error) {
+                                console.error("Error deleting category and notes:", error);
+                                showMessage(`Failed to delete category: ${error.message}`);
+                            } finally {
+                                confirmationModal.remove(); // Remove the modal
+                            }
+                        });
+
+                        document.getElementById('cancelDeleteCategory').addEventListener('click', () => {
+                            confirmationModal.remove(); // Remove the modal
+                        });
+                    });
+
+                    // Add note button for this category
+                    categoryBox.querySelector('.add-note-btn').addEventListener('click', async () => {
+                        try {
+                            const newNoteRef = await addDoc(collection(window.db, 'artifacts', window.appId, 'users', window.userId, 'notes'), {
+                                categoryId: categoryData.id,
+                                content: '', // Empty note content initially
+                                createdAt: new Date().toISOString()
+                            });
+                            showMessage("New note added to category.");
+                            // The onSnapshot listener for notes will render it
+                        } catch (error) {
+                            console.error("Error adding note:", error);
+                            showMessage("Failed to add note.");
+                        }
+                    });
+
+                    return categoryBox;
+                }
+
+                // Function to create a note DOM element
+                function createNoteElement(noteData) {
+                    const noteBox = document.createElement('div');
+                    noteBox.className = 'note-box';
+                    noteBox.id = `note-${noteData.id}`;
+                    noteBox.setAttribute('contenteditable', 'true');
+                    noteBox.textContent = noteData.content;
+                    noteBox.style.zIndex = noteData.zIndex || 1; // Notes generally have lower z-index than categories
+
+                    noteBox.addEventListener('blur', async () => {
+                        const newContent = noteBox.textContent.trim();
+                        // Ensure the delete button is not part of the content when saving
+                        const tempDiv = document.createElement('div');
+                        tempDiv.innerHTML = noteBox.innerHTML;
+                        const deleteBtn = tempDiv.querySelector('.delete-btn');
+                        if (deleteBtn) {
+                            deleteBtn.remove();
+                        }
+                        const contentToSave = tempDiv.textContent.trim();
+
+                        if (contentToSave !== noteData.content) {
+                            try {
+                                await updateDoc(doc(window.db, 'artifacts', window.appId, 'users', window.userId, 'notes', noteData.id), {
+                                    content: contentToSave
+                                });
+                                showMessage("Note content updated.");
+                            } catch (error) {
+                                console.error("Error updating note content:", error);
+                                showMessage("Failed to update note.");
+                            }
+                        }
+                    });
+
+                    // Add a delete button for the note
+                    const deleteNoteBtn = document.createElement('button');
+                    deleteNoteBtn.className = 'delete-btn ml-2 float-right'; // Tailwind classes for styling
+                    deleteNoteBtn.textContent = 'X';
+                    deleteNoteBtn.addEventListener('click', async (e) => {
+                        e.stopPropagation(); // Prevent blur event on note contenteditable
+                        // Using custom modal message instead of browser's confirm()
+                        const confirmationModal = document.createElement('div');
+                        confirmationModal.className = 'modal-overlay';
+                        confirmationModal.innerHTML = `
+                            <div class="modal-content">
+                                <p class="text-lg mb-4">Are you sure you want to delete this note?</p>
+                                <div class="flex justify-center space-x-4">
+                                    <button id="confirmDeleteNote" class="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600">Yes, Delete</button>
+                                    <button id="cancelDeleteNote" class="bg-gray-300 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-400">Cancel</button>
+                                </div>
+                            </div>
+                        `;
+                        document.body.appendChild(confirmationModal);
+
+                        document.getElementById('confirmDeleteNote').addEventListener('click', async () => {
+                            try {
+                                await deleteDoc(doc(window.db, 'artifacts', window.appId, 'users', window.userId, 'notes', noteData.id));
+                                showMessage("Note deleted.");
+                            } catch (error) {
+                                console.error("Error deleting note:", error);
+                                showMessage("Failed to delete note.");
+                            } finally {
+                                confirmationModal.remove(); // Remove the modal
+                            }
+                        });
+
+                        document.getElementById('cancelDeleteNote').addEventListener('click', () => {
+                            confirmationModal.remove(); // Remove the modal
+                        });
+                    });
+                    noteBox.prepend(deleteNoteBtn); // Add delete button at the beginning
+
+                    return noteBox;
+                }
+
+                // Global mouse move and up for dragging/resizing
+                document.addEventListener('mousemove', (e) => {
+                    if (activeDragElement) {
+                        // Calculate new position
+                        let newX = e.clientX - initialX;
+                        let newY = e.clientY - initialY;
+
+                        // Constrain within notesCanvas boundaries
+                        const canvasRect = notesCanvas.getBoundingClientRect();
+                        const elementRect = activeDragElement.getBoundingClientRect();
+
+                        newX = Math.max(0, Math.min(newX, canvasRect.width - elementRect.width));
+                        newY = Math.max(0, Math.min(newY, canvasRect.height - elementRect.height));
+
+                        activeDragElement.style.left = `${newX}px`;
+                        activeDragElement.style.top = `${newY}px`;
+                    }
+                });
+
+                document.addEventListener('mouseup', async () => {
+                    if (activeDragElement) {
+                        const elementId = activeDragElement.id.split('-')[1]; // Get ID part
+                        const elementType = activeDragElement.id.split('-')[0]; // "category" or "note"
+
+                        const x = parseFloat(activeDragElement.style.left);
+                        const y = parseFloat(activeDragElement.style.top);
+                        const zIndex = parseFloat(activeDragElement.style.zIndex);
+                        const width = activeDragElement.offsetWidth; // Get current rendered width
+                        const height = activeDragElement.offsetHeight; // Get current rendered height
+
+                        try {
+                            if (elementType === 'category') {
+                                await updateDoc(doc(window.db, 'artifacts', window.appId, 'users', window.userId, 'categories', elementId), {
+                                    x: x,
+                                    y: y,
+                                    width: width,
+                                    height: height,
+                                    zIndex: zIndex
+                                });
+                                showMessage("Category position and size saved.");
+                            }
+                        } catch (error) {
+                            console.error(`Error updating ${elementType} position:`, error);
+                            showMessage(`Failed to save ${elementType} position.`);
+                        }
+                        activeDragElement = null; // Reset active element
+                        isResizing = false; // Reset resizing flag (not actively used for custom resize handles but good to reset)
+                    }
+                });
+
+
+                // Main listener function for notes and categories
+                function setupNoteListeners() {
+                    // Listen for Categories
+                    onSnapshot(collection(window.db, 'artifacts', window.appId, 'users', window.userId, 'categories'), (snapshot) => {
+                        snapshot.docChanges().forEach(change => {
+                            const categoryData = { id: change.doc.id, ...change.doc.data() };
+                            const existingCategoryEl = document.getElementById(`category-${categoryData.id}`);
+
+                            if (change.type === "added") {
+                                if (!existingCategoryEl) { // Only add if not already present
+                                    const categoryElement = createCategoryElement(categoryData);
+                                    notesCanvas.appendChild(categoryElement);
+                                    console.log("Added category:", categoryData.id);
+                                }
+                            } else if (change.type === "modified") {
+                                if (existingCategoryEl) {
+                                    // Update position, size, zIndex, and name
+                                    existingCategoryEl.style.left = `${categoryData.x}px`;
+                                    existingCategoryEl.style.top = `${categoryData.y}px`;
+                                    existingCategoryEl.style.width = `${categoryData.width}px`;
+                                    existingCategoryEl.style.height = `${categoryData.height}px`;
+                                    existingCategoryEl.style.zIndex = categoryData.zIndex;
+                                    existingCategoryEl.querySelector('.category-name-edit').textContent = categoryData.name;
+                                    console.log("Modified category:", categoryData.id);
+                                }
+                            } else if (change.type === "removed") {
+                                if (existingCategoryEl) {
+                                    existingCategoryEl.remove();
+                                    console.log("Removed category:", categoryData.id);
+                                }
+                            }
+                        });
+                    });
+
+                    // Listen for Notes (within categories)
+                    onSnapshot(collection(window.db, 'artifacts', window.appId, 'users', window.userId, 'notes'), (snapshot) => {
+                        snapshot.docChanges().forEach(change => {
+                            const noteData = { id: change.doc.id, ...change.doc.data() };
+                            const parentCategoryContainer = document.getElementById(`notes-in-category-${noteData.categoryId}`);
+                            const existingNoteEl = document.getElementById(`note-${noteData.id}`);
+
+                            if (!parentCategoryContainer) {
+                                console.warn(`Parent category container for note ${noteData.id} not found. Note might be orphaned or category not loaded yet.`);
+                                return;
+                            }
+
+                            if (change.type === "added") {
+                                if (!existingNoteEl) {
+                                    const noteElement = createNoteElement(noteData);
+                                    parentCategoryContainer.appendChild(noteElement);
+                                    console.log("Added note:", noteData.id);
+                                }
+                            } else if (change.type === "modified") {
+                                if (existingNoteEl) {
+                                    // Remove existing delete button if any before setting textContent
+                                    const existingDeleteBtn = existingNoteEl.querySelector('.delete-btn');
+                                    if (existingDeleteBtn) {
+                                        existingDeleteBtn.remove();
+                                    }
+                                    existingNoteEl.textContent = noteData.content;
+                                    // Re-add delete button as textContent replaces it
+                                    const deleteBtn = document.createElement('button');
+                                    deleteBtn.className = 'delete-btn ml-2 float-right';
+                                    deleteBtn.textContent = 'X';
+                                    deleteBtn.addEventListener('click', async (e) => {
+                                        e.stopPropagation();
+                                        const confirmationModal = document.createElement('div');
+                                        confirmationModal.className = 'modal-overlay';
+                                        confirmationModal.innerHTML = `
+                                            <div class="modal-content">
+                                                <p class="text-lg mb-4">Are you sure you want to delete this note?</p>
+                                                <div class="flex justify-center space-x-4">
+                                                    <button id="confirmDeleteNote" class="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600">Yes, Delete</button>
+                                                    <button id="cancelDeleteNote" class="bg-gray-300 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-400">Cancel</button>
+                                                </div>
+                                            </div>
+                                        `;
+                                        document.body.appendChild(confirmationModal);
+
+                                        document.getElementById('confirmDeleteNote').addEventListener('click', async () => {
+                                            try {
+                                                await deleteDoc(doc(window.db, 'artifacts', window.appId, 'users', window.userId, 'notes', noteData.id));
+                                                showMessage("Note deleted.");
+                                            } catch (error) {
+                                                console.error("Error deleting note:", error);
+                                                showMessage("Failed to delete note.");
+                                            } finally {
+                                                confirmationModal.remove();
+                                            }
+                                        });
+                                        document.getElementById('cancelDeleteNote').addEventListener('click', () => {
+                                            confirmationModal.remove();
+                                        });
+                                    });
+                                    existingNoteEl.prepend(deleteBtn);
+                                    console.log("Modified note:", noteData.id);
+                                }
+                            } else if (change.type === "removed") {
+                                if (existingNoteEl) {
+                                    existingNoteEl.remove();
+                                    console.log("Removed note:", noteData.id);
+                                }
+                            }
+                        });
+                    });
+                }
+            } catch (error) {
+                console.error("Initialization Error:", error);
+                showMessage(`App failed to load: ${error.message}. Please check console.`);
+                document.getElementById('loadingOverlay').classList.add('hidden');
             }
+        };
+
+        // --- Customization Panel Logic (from previous version, adapted) ---
+        const root = document.documentElement;
+        const customizationPanel = document.getElementById('customizationPanel');
+        const openPanelBtn = document.getElementById('openPanelBtn');
+        const closePanelBtn = document.getElementById('closePanelBtn');
+        const primaryColorPicker = document.getElementById('primaryColorPicker');
+        const secondaryColorPicker = document.getElementById('secondaryColorPicker');
+        const gradientDirection = document.getElementById('gradientDirection');
+        const resetColorsBtn = document.getElementById('resetColorsBtn');
+        const header = document.querySelector('header');
+        const ctaSection = document.querySelector('.bg-custom-gradient-reverse'); // This section is now just a placeholder in the note app, but keeping the styling logic
+
+        function updateColors(primary, secondary, direction) {
+            root.style.setProperty('--primary-color', primary);
+            root.style.setProperty('--secondary-color', secondary);
+
+            // Update header background gradient
+            if (header) {
+                header.style.backgroundImage = `linear-gradient(${direction}, ${primary}, ${secondary})`;
+            }
+
+            // Update CTA section background gradient (if applicable, otherwise no-op)
+            let reverseDirection;
+            if (direction === 'to right') reverseDirection = 'to left';
+            else if (direction === 'to left') reverseDirection = 'to right';
+            else if (direction === 'to top') reverseDirection = 'to bottom';
+            else if (direction === 'to bottom') reverseDirection = 'to top';
+            else if (direction === 'to top right') reverseDirection = 'to bottom left';
+            else if (direction === 'to bottom left') reverseDirection = 'to top right';
+            else reverseDirection = 'to right'; // Default fallback
+
+            if (ctaSection) { // Ensure CTA section exists (it's hidden in this version)
+                 ctaSection.style.backgroundImage = `linear-gradient(${reverseDirection}, ${secondary}, ${primary})`;
+            }
+        }
+
+        primaryColorPicker.addEventListener('input', (event) => {
+            updateColors(event.target.value, secondaryColorPicker.value, gradientDirection.value);
         });
 
-        // Settings Navigation Logic
-        navControls.addEventListener('click', () => showSettingsSection('controls'));
-        navGameplay.addEventListener('click', () => showSettingsSection('gameplay'));
-        // Removed navAccount listener
+        secondaryColorPicker.addEventListener('input', (event) => {
+            updateColors(primaryColorPicker.value, event.target.value, gradientDirection.value);
+        });
 
-        function showSettingsSection(sectionName) {
-            sectionControls.classList.remove('active');
-            sectionGameplay.classList.remove('active');
-            navControls.classList.remove('active');
-            navGameplay.classList.remove('active');
+        gradientDirection.addEventListener('change', (event) => {
+            updateColors(primaryColorPicker.value, secondaryColorPicker.value, event.target.value);
+        });
 
-            if (sectionName === 'controls') {
-                sectionControls.classList.add('active');
-                navControls.classList.add('active');
-            } else if (sectionName === 'gameplay') {
-                sectionGameplay.classList.add('active');
-                navGameplay.classList.add('active');
+        openPanelBtn.addEventListener('click', () => {
+            customizationPanel.classList.remove('translate-x-full');
+            customizationPanel.classList.add('translate-x-0');
+        });
+        closePanelBtn.addEventListener('click', () => {
+            customizationPanel.classList.remove('translate-x-0');
+            customizationPanel.classList.add('translate-x-full');
+        });
+
+        resetColorsBtn.addEventListener('click', () => {
+            const defaultPrimary = '#6366f1';
+            const defaultSecondary = '#a78bfa';
+            const defaultDirection = 'to right';
+
+            primaryColorPicker.value = defaultPrimary;
+            secondaryColorPicker.value = defaultSecondary;
+            gradientDirection.value = defaultDirection;
+            updateColors(defaultPrimary, defaultSecondary, defaultDirection);
+            showMessage("Colors have been reset to default.");
+        });
+
+        // Initialize colors on customization panel load (if not handled by window.onload)
+        document.addEventListener('DOMContentLoaded', () => {
+            // Only initialize colors here if Firebase hasn't already done it via onAuthStateChanged
+            // which sets up the header gradient. If Firebase hasn't run yet, apply defaults.
+            if (!window.firebaseApp) {
+                const initialPrimary = primaryColorPicker.value;
+                const initialSecondary = secondaryColorPicker.value;
+                const initialDirection = gradientDirection.value;
+                updateColors(initialPrimary, initialSecondary, initialDirection);
             }
-            // Removed account section handling
-        }
+        });
 
     </script>
+</head>
+<body class="bg-gray-100 flex flex-col min-h-screen">
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="hidden">
+        <div class="spinner"></div>
+        <p>Loading your notes...</p>
+    </div>
+
+    <!-- Message Box -->
+    <div id="messageBox" class="message-box"></div>
+
+    <!-- Authentication Modal -->
+    <div id="authModal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h2 class="text-3xl font-bold mb-4 text-primary-color">Welcome to Sticky Notes!</h2>
+            <p id="authMessage" class="text-gray-700 mb-6"></p>
+
+            <!-- Set Password Form -->
+            <div id="passwordForm" class="hidden">
+                <div class="mb-4">
+                    <input type="password" id="newPassword" placeholder="New Password (min 8 characters)" class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-color" minlength="8">
+                </div>
+                <div class="mb-6">
+                    <input type="password" id="confirmNewPassword" placeholder="Confirm New Password" class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-color">
+                </div>
+                <button id="setPasswordBtn" class="bg-primary-color text-white px-6 py-3 rounded-lg w-full hover:bg-indigo-700 transition duration-300">Set Password</button>
+                <p class="mt-4 text-sm text-gray-600">Already set a password? <a href="#" id="showLoginLink" class="text-primary-color hover:underline">Sign In</a></p>
+            </div>
+
+            <!-- Login Form -->
+            <div id="loginForm" class="hidden">
+                <div class="mb-6">
+                    <input type="password" id="loginPassword" placeholder="Your Password" class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-color">
+                </div>
+                <button id="loginBtn" class="bg-primary-color text-white px-6 py-3 rounded-lg w-full hover:bg-indigo-700 transition duration-300">Login</button>
+                <p class="mt-4 text-sm text-gray-600">First time here? <a href="#" id="showSetPasswordLink" class="text-primary-color hover:underline">Set a Password</a></p>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Main Application Content -->
+    <div id="mainAppContent" class="hidden flex flex-col flex-grow">
+        <!-- Header Section -->
+        <header class="bg-custom-gradient text-white p-6 md:p-8 shadow-lg rounded-b-xl mb-8 transition-all duration-500 ease-in-out">
+            <div class="container mx-auto flex flex-col md:flex-row justify-between items-center">
+                <h1 class="text-3xl md:text-4xl font-bold mb-4 md:mb-0">Universal Sticky Notes</h1>
+                <div class="flex items-center space-x-4">
+                    <span id="displayUserId" class="text-sm text-gray-200 truncate"></span>
+                    <button id="logoutBtn" class="bg-white text-primary-color px-4 py-2 rounded-full text-sm font-semibold hover:bg-gray-200 transition duration-300">Logout</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content Section -->
+        <main class="container mx-auto p-4 flex-grow">
+            <section class="text-center mb-6">
+                <button id="addCategoryBtn" class="bg-green-500 text-white px-6 py-3 rounded-full text-lg font-semibold shadow-lg hover:bg-green-600 transform hover:-translate-y-1 transition duration-300 ease-in-out focus:outline-none focus:ring-4 focus:ring-green-500 focus:ring-opacity-50">
+                    Add New Category
+                </button>
+            </section>
+
+            <!-- Notes Canvas -->
+            <div id="notes-canvas" class="min-h-[70vh] w-full mb-8">
+                <!-- Categories and Notes will be rendered here dynamically -->
+            </div>
+
+            <!-- Placeholder for old CTA section, kept for color update logic -->
+            <section class="bg-gray-800 text-white p-10 rounded-xl shadow-lg text-center hidden bg-custom-gradient-reverse transition-all duration-500 ease-in-out">
+                <h2 class="text-3xl md:text-4xl font-bold mb-4">Hidden CTA Section</h2>
+                <p class="text-lg mb-6">This section is hidden in the notes app.</p>
+            </section>
+        </main>
+
+        <!-- Footer Section -->
+        <footer class="bg-gray-800 text-white p-6 md:p-8 mt-8 rounded-t-xl shadow-lg">
+            <div class="container mx-auto text-center text-gray-400">
+                &copy; 2025 Universal Sticky Notes. All rights reserved.
+            </div>
+        </footer>
+
+        <!-- Customization Panel -->
+        <div id="customizationPanel" class="fixed right-0 top-0 h-full w-72 bg-white shadow-2xl transform translate-x-full transition-transform duration-300 ease-in-out z-50 rounded-l-xl flex flex-col custom-scrollbar">
+            <div class="flex justify-between items-center p-4 border-b border-gray-200 bg-gray-50 rounded-tl-xl">
+                <h3 class="text-xl font-semibold text-gray-800">Customize Theme</h3>
+                <button id="closePanelBtn" class="text-gray-500 hover:text-gray-700 focus:outline-none">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <div class="p-4 flex-grow overflow-y-auto">
+                <div class="mb-6">
+                    <label for="primaryColorPicker" class="block text-gray-700 text-sm font-bold mb-2">Primary Color:</label>
+                    <input type="color" id="primaryColorPicker" value="#6366f1" class="w-full h-10 border border-gray-300 rounded-lg p-1">
+                </div>
+                <div class="mb-6">
+                    <label for="secondaryColorPicker" class="block text-gray-700 text-sm font-bold mb-2">Secondary Color:</label>
+                    <input type="color" id="secondaryColorPicker" value="#a78bfa" class="w-full h-10 border border-gray-300 rounded-lg p-1">
+                </div>
+                <div class="mb-6">
+                    <label for="gradientDirection" class="block text-gray-700 text-sm font-bold mb-2">Gradient Direction:</label>
+                    <select id="gradientDirection" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-primary-color focus:border-primary-color">
+                        <option value="to right">To Right</option>
+                        <option value="to left">To Left</option>
+                        <option value="to top">To Top</option>
+                        <option value="to bottom">To Bottom</option>
+                        <option value="to top right">To Top Right</option>
+                        <option value="to bottom left">To Bottom Left</option>
+                    </select>
+                </div>
+                <div class="mb-6">
+                    <button id="resetColorsBtn" class="w-full bg-gray-200 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-300 transition duration-200 ease-in-out">
+                        Reset Colors
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Floating Customization Button -->
+        <button id="openPanelBtn" class="fixed bottom-6 right-6 bg-primary-color text-white p-4 rounded-full shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition duration-300 ease-in-out focus:outline-none focus:ring-4 focus:ring-primary-color focus:ring-opacity-50 z-40">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37zm3.126 10.323a2.5 2.5 0 10-3.398-3.398 2.5 2.5 0 003.398 3.398z"></path></svg>
+        </button>
+    </div>
+
 </body>
 </html>
