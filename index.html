@@ -8,6 +8,9 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Inter font from Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Cropper.js CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
     <style>
         /* Define CSS custom properties for dynamic theming */
         :root {
@@ -106,7 +109,7 @@
             position: absolute;
             min-width: 250px;
             min-height: 150px;
-            background-color: #e0f2f7; /* Light Blue */
+            /* background-color will be set dynamically via categoryData.color */
             border: 1px solid #90cdf4; /* Blue 300 */
             border-radius: 0.75rem; /* rounded-lg */
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
@@ -118,6 +121,10 @@
             padding: 1rem;
             z-index: 10;
             transition: box-shadow 0.1s ease-in-out;
+            user-select: none; /* Prevent text selection during dragging */
+            -webkit-user-select: none; /* For Safari */
+            -moz-user-select: none; /* For Firefox */
+            -ms-user-select: none; /* For IE/Edge */
         }
         .category-box:active {
             cursor: grabbing;
@@ -127,12 +134,16 @@
             font-weight: bold;
             font-size: 1.25rem;
             margin-bottom: 0.5rem;
-            cursor: move; /* Indicate header is for dragging */
+            cursor: grab; /* Indicate header is for dragging */
             padding-bottom: 0.5rem;
             border-bottom: 1px solid rgba(0, 0, 0, 0.1);
             display: flex;
             justify-content: space-between;
             align-items: center;
+            user-select: none; /* Prevent text selection during dragging */
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
         }
         .category-notes-container {
             flex-grow: 1;
@@ -165,15 +176,41 @@
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
             transition: box-shadow 0.1s ease-in-out;
             word-wrap: break-word; /* Ensure text wraps */
+            display: flex; /* Use flex to align delete button */
+            align-items: flex-start; /* Align items to top */
+            gap: 0.5rem; /* Space between content and button */
         }
-        .note-box:focus {
+        .note-box:focus-within { /* Use focus-within for parent container */
             outline: none;
             box-shadow: 0 0 0 2px var(--primary-color);
         }
+        .note-content-editable { /* New class for contenteditable part of note */
+            flex-grow: 1;
+            outline: none; /* Remove default outline */
+            min-height: 24px; /* Ensure some height for empty notes */
+            padding-top: 2px; /* Small padding to align with button */
+            user-select: text; /* Allow text selection for editing */
+            -webkit-user-select: text;
+            -moz-user-select: text;
+            -ms-user-select: text;
+        }
+        .category-title {
+            user-select: text; /* Allow text selection for editing */
+            -webkit-user-select: text;
+            -moz-user-select: text;
+            -ms-user-select: text;
+        }
+        .list-item-content {
+            user-select: text; /* Allow text selection for editing */
+            -webkit-user-select: text;
+            -moz-user-select: text;
+            -ms-user-select: text;
+        }
 
-        /* Delete Buttons for Category and Note */
-        .delete-btn {
-            background-color: #ef4444; /* Red 500 */
+
+        /* Action Buttons for Category and Note */
+        .action-btn {
+            background-color: #ef4444; /* Red 500 default */
             color: white;
             padding: 0.25rem 0.5rem;
             border-radius: 0.375rem; /* rounded-md */
@@ -181,26 +218,21 @@
             cursor: pointer;
             border: none;
             transition: background-color 0.2s ease-in-out;
+            display: flex; /* For SVG icons */
+            align-items: center;
+            justify-content: center;
         }
-        .delete-btn:hover {
-            background-color: #dc2626; /* Red 600 */
+        .action-btn:hover {
+            filter: brightness(1.1);
         }
-        .add-note-btn {
-            background-color: #22c55e; /* Green 500 */
-            color: white;
-            padding: 0.25rem 0.5rem;
-            border-radius: 0.375rem; /* rounded-md */
-            font-size: 0.75rem;
-            cursor: pointer;
-            border: none;
-            margin-top: 0.5rem;
-            transition: background-color 0.2s ease-in-out;
-        }
-        .add-note-btn:hover {
-            background-color: #16a34a; /* Green 600 */
-        }
+        .delete-btn { background-color: #ef4444; } /* Red */
+        .add-note-btn { background-color: #22c55e; } /* Green */
+        .edit-btn { background-color: #3b82f6; } /* Blue */ /* New style for edit button */
+        .upload-img-btn { background-color: #9333ea; } /* Purple for image upload */
+        .add-list-btn { background-color: #f6ad55; } /* Orange for list */
 
-        /* Auth Modal Specific Styles */
+
+        /* Auth/Category Modals specific */
         .modal-overlay {
             position: fixed;
             top: 0;
@@ -222,22 +254,7 @@
             max-width: 400px;
             text-align: center;
         }
-        /* Loading overlay styles */
-        #loadingOverlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(255, 255, 255, 0.8);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 2000; /* Higher than other modals */
-            font-size: 1.5rem;
-            color: var(--primary-color);
-        }
+        /* Spinner for loading inside modal */
         .spinner {
             border: 8px solid #f3f3f3;
             border-top: 8px solid var(--primary-color);
@@ -245,811 +262,1117 @@
             width: 60px;
             height: 60px;
             animation: spin 1s linear infinite;
-            margin-bottom: 1rem;
+            margin: 1rem auto; /* Center spinner */
         }
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+
+        /* Image preview styles */
+        .note-image-wrapper { /* Wrapper to contain image and resize handles/buttons */
+            position: relative;
+            max-width: 100%;
+            height: auto;
+            margin-top: 0.5rem;
+            border-radius: 0.5rem;
+            overflow: hidden; /* Ensure image respects border-radius */
+            resize: both; /* Enable resizing */
+            min-width: 50px;
+            min-height: 50px;
+        }
+        .note-image-wrapper img {
+            width: 100%;
+            height: 100%; /* Fill the wrapper */
+            display: block;
+            object-fit: contain; /* Ensure image fits without cropping itself */
+        }
+        /* Cropper.js specific styling adjustments */
+        .cropper-container {
+            max-width: 100%;
+            max-height: 500px; /* Limit height of cropper area */
+            margin: 0 auto;
+        }
+
+        /* List item styling */
+        .list-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.25rem;
+        }
+        .list-item-content {
+            flex-grow: 1;
+            outline: none;
+            padding: 0.25rem;
+            border-bottom: 1px dashed #ccc;
+        }
+        .list-item input[type="checkbox"] {
+            transform: scale(1.2);
+        }
+        .list-actions {
+            display: flex;
+            gap: 0.25rem;
+        }
+
     </style>
+    <!-- Cropper.js Script (loaded globally, NOT as a module) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
     <!-- Firebase SDKs -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, onSnapshot, collection, query, addDoc, deleteDoc, updateDoc, where, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, setDoc, onSnapshot, collection, query, where, addDoc, getDocs, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
 
-        // Global variables for Firebase
-        window.firebaseApp = null;
-        window.db = null;
-        window.auth = null;
-        window.userId = null;
-        // Directly embed your Firebase Config for publishable version
+        // Global variables for Firebase instances
+        let app;
+        let db;
+        let auth;
+        let storage;
+        let userId = null;
+        let unsubscribeSnapshots = []; // To store unsubscribe functions for snapshots
+
+        // IMPORTANT: For GitHub Pages deployment, replace these with your actual Firebase project configuration.
+        // You can find this in your Firebase project settings -> Project settings -> General -> Your apps -> Firebase SDK snippet -> Config
         const firebaseConfig = {
-            apiKey: "AIzaSyBm00uFk4lPTLbzhvdU7DFExqhvySeKIC8",
-            authDomain: "notesapp-643cd.firebaseapp.com",
-            projectId: "notesapp-643cd",
-            storageBucket: "notesapp-643cd.firebasestorage.app",
-            messagingSenderId: "599886933610",
-            appId: "1:599886933610:web:708c30f834c460324b6413",
-            measurementId: "G-GY7LYN8ECF" // measurementId is optional and not used in this app's core logic
+            apiKey: "AIzaSyBm00uFk4lPTLbzhvdU7DFExqhvySeKIC8", // e.g., "AIzaSyC_YOUR_ACTUAL_API_KEY_HERE"
+            authDomain: "notesapp-643cd.firebaseapp.com", // e.g., "your-project-id.firebaseapp.com"
+            projectId: "notesapp-643cd", // e.g., "your-project-id"
+            storageBucket: "notesapp-643cd.firebasestorage.app", // e.g., "your-project-id.appspot.com"
+            messagingSenderId: "599886933610", // e.g., "1234567890"
+            appId: "1:599886933610:web:708c30f834c460324b6413" // e.g., "1:1234567890:web:abcdef1234567890"
         };
-        // Use projectId as the appId for Firestore paths in a standalone environment
-        window.appId = firebaseConfig.projectId;
+
+        // For GitHub Pages, use the projectId as the appId for data path.
+        // For Canvas environment, __app_id is provided.
+        const appId = typeof __app_id !== 'undefined' ? __app_id : firebaseConfig.projectId || 'default-app-id';
 
 
-        // Message Box Function
-        function showMessage(message, duration = 3000) {
+        // Function to show a custom message box
+        function showMessageBox(message, duration = 3000) {
             const messageBox = document.getElementById('messageBox');
-            if (messageBox) {
-                messageBox.textContent = message;
-                messageBox.classList.add('show');
-                setTimeout(() => {
-                    messageBox.classList.remove('show');
-                }, duration);
-            }
+            messageBox.textContent = message;
+            messageBox.classList.add('show');
+            setTimeout(() => {
+                messageBox.classList.remove('show');
+            }, duration);
         }
 
-        window.onload = async () => {
-            try {
-                // Initialize Firebase with the embedded config
-                window.firebaseApp = initializeApp(firebaseConfig);
-                window.db = getFirestore(window.firebaseApp);
-                window.auth = getAuth(window.firebaseApp);
+        // Function to show/hide loading spinner
+        function showSpinner() {
+            document.getElementById('loadingSpinner').classList.remove('hidden');
+        }
 
-                // Show loading indicator or splash screen while authenticating
-                const loadingOverlay = document.getElementById('loadingOverlay');
-                loadingOverlay.classList.remove('hidden');
+        function hideSpinner() {
+            document.getElementById('loadingSpinner').classList.add('hidden');
+        }
+
+        // --- Firebase Initialization and Authentication ---
+        async function initializeFirebase() {
+            try {
+                showSpinner();
+                if (!app) {
+                    app = initializeApp(firebaseConfig);
+                    db = getFirestore(app);
+                    auth = getAuth(app);
+                    storage = getStorage(app);
+                }
 
                 // Listen for auth state changes
-                onAuthStateChanged(window.auth, async (user) => {
+                onAuthStateChanged(auth, async (user) => {
                     if (user) {
-                        window.userId = user.uid; // Set global userId
-                        document.getElementById('displayUserId').textContent = `User ID: ${window.userId}`;
-                        console.log("Authenticated as:", window.userId);
-
-                        try {
-                            // Check if password has been set for this anonymous user
-                            const userProfileRef = doc(window.db, 'artifacts', window.appId, 'users', window.userId, 'settings', 'userProfile');
-                            console.log("Attempting to fetch user profile for:", window.userId);
-                            const userProfileSnap = await getDoc(userProfileRef);
-                            console.log("User profile snapshot exists:", userProfileSnap.exists());
-
-                            loadingOverlay.classList.add('hidden'); // Hide loading
-
-                            if (userProfileSnap.exists() && userProfileSnap.data().passwordHash) {
-                                // Password already set, hide auth modal, show app
-                                document.getElementById('authModal').classList.add('hidden');
-                                document.getElementById('mainAppContent').classList.remove('hidden');
-                                showMessage("Welcome back! Loading your notes...");
-                                setupNoteListeners(); // Start listening for notes
-                                attachMainAppEventListeners(); // Attach event listeners for main app elements
-                            } else {
-                                // First time or password not set, show password creation modal
-                                document.getElementById('authModal').classList.remove('hidden');
-                                document.getElementById('mainAppContent').classList.add('hidden');
-                                document.getElementById('passwordForm').classList.remove('hidden'); // Show set password form
-                                document.getElementById('loginForm').classList.add('hidden'); // Hide login form
-                                document.getElementById('authMessage').textContent = 'Welcome! Please set a password to secure your notes.';
-                            }
-                        } catch (profileError) {
-                            console.error("Error fetching user profile:", profileError);
-                            showMessage(`Failed to load profile: ${profileError.message}. Please check Firebase rules.`);
-                            loadingOverlay.classList.add('hidden'); // Ensure loading is hidden on profile fetch error
-                        }
+                        userId = user.uid;
+                        console.log("User logged in:", userId);
+                        document.getElementById('user-id-display').textContent = `User ID: ${userId}`;
+                        await loadCategories();
+                        hideSpinner();
                     } else {
-                        // Not authenticated, sign in anonymously
-                        try {
-                            await signInAnonymously(window.auth);
-                            console.log("Signed in anonymously.");
-                        } catch (error) {
-                            console.error("Firebase Auth Error:", error);
-                            showMessage(`Authentication failed: ${error.message}`);
-                            loadingOverlay.classList.add('hidden');
-                        }
+                        userId = null;
+                        console.log("No user logged in, attempting anonymous sign-in.");
+                        document.getElementById('user-id-display').textContent = 'User ID: N/A (Not Logged In)';
+                        // Always sign in anonymously if no user is present.
+                        await signInAnonymously(auth);
+                        console.log("Signed in anonymously.");
+                        hideSpinner();
                     }
                 });
-
-                // Function to hash password (client-side)
-                async function hashPassword(password) {
-                    const textEncoder = new TextEncoder();
-                    const data = textEncoder.encode(password);
-                    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-                    const hashArray = Array.from(new Uint8Array(hashBuffer));
-                    const hashedPassword = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-                    return hashedPassword;
-                }
-
-                // Password Setup/Login Handlers
-                document.getElementById('setPasswordBtn').addEventListener('click', async () => {
-                    const passwordInput = document.getElementById('newPassword').value;
-                    const confirmPasswordInput = document.getElementById('confirmNewPassword').value;
-                    if (passwordInput.length < 8) {
-                        showMessage("Password must be at least 8 characters long.");
-                        return;
-                    }
-                    if (passwordInput !== confirmPasswordInput) {
-                        showMessage("Passwords do not match.");
-                        return;
-                    }
-
-                    try {
-                        const hashedPassword = await hashPassword(passwordInput);
-                        const userProfileRef = doc(window.db, 'artifacts', window.appId, 'users', window.userId, 'settings', 'userProfile');
-                        await setDoc(userProfileRef, { passwordHash: hashedPassword, createdAt: new Date().toISOString() }, { merge: true });
-                        document.getElementById('authModal').classList.add('hidden');
-                        document.getElementById('mainAppContent').classList.remove('hidden');
-                        showMessage("Password set successfully! Welcome to your notes.");
-                        setupNoteListeners(); // Start listening for notes
-                        attachMainAppEventListeners(); // Attach event listeners for main app elements
-                    } catch (error) {
-                        console.error("Error setting password:", error);
-                        showMessage(`Failed to set password: ${error.message}`);
-                    }
-                });
-
-                document.getElementById('loginBtn').addEventListener('click', async () => {
-                    const passwordInput = document.getElementById('loginPassword').value;
-                    if (passwordInput.length === 0) {
-                        showMessage("Please enter your password.");
-                        return;
-                    }
-
-                    try {
-                        const userProfileRef = doc(window.db, 'artifacts', window.appId, 'users', window.userId, 'settings', 'userProfile');
-                        const userProfileSnap = await getDoc(userProfileRef);
-
-                        if (userProfileSnap.exists() && userProfileSnap.data().passwordHash) {
-                            const storedHash = userProfileSnap.data().passwordHash;
-                            const enteredHash = await hashPassword(passwordInput);
-
-                            if (storedHash === enteredHash) {
-                                document.getElementById('authModal').classList.add('hidden');
-                                document.getElementById('mainAppContent').classList.remove('hidden');
-                                showMessage("Login successful! Welcome back.");
-                                setupNoteListeners(); // Start listening for notes
-                                attachMainAppEventListeners(); // Attach event listeners for main app elements
-                            } else {
-                                showMessage("Incorrect password. Please try again.");
-                            }
-                        } else {
-                            showMessage("No password set for this user. Please set one first.");
-                        }
-                    } catch (error) {
-                        console.error("Error logging in:", error);
-                        showMessage(`Login failed: ${error.message}`);
-                    }
-                });
-
-                // Toggle between set password and login forms
-                document.getElementById('showLoginLink').addEventListener('click', (e) => {
-                    e.preventDefault();
-                    document.getElementById('passwordForm').classList.add('hidden');
-                    document.getElementById('loginForm').classList.remove('hidden');
-                    document.getElementById('authMessage').textContent = 'Please enter your password to access your notes.';
-                });
-
-                document.getElementById('showSetPasswordLink').addEventListener('click', (e) => {
-                    e.preventDefault();
-                    document.getElementById('loginForm').classList.add('hidden');
-                    document.getElementById('passwordForm').classList.remove('hidden');
-                    document.getElementById('authMessage').textContent = 'Welcome! Please set a password to secure your notes.';
-                });
-
-                // Function to attach event listeners for main app content once it's visible
-                function attachMainAppEventListeners() {
-                    // Logout button functionality
-                    document.getElementById('logoutBtn').addEventListener('click', async () => {
-                        try {
-                            await signOut(window.auth);
-                            showMessage("Logged out successfully. You can close this tab or sign in again.");
-                            // Clear UI and show auth modal again
-                            document.getElementById('notes-canvas').innerHTML = ''; // Clear notes
-                            document.getElementById('mainAppContent').classList.add('hidden');
-                            document.getElementById('authModal').classList.remove('hidden');
-                            document.getElementById('loginForm').classList.remove('hidden'); // Show login form
-                            document.getElementById('passwordForm').classList.add('hidden'); // Hide set password form
-                            document.getElementById('authMessage').textContent = 'Please enter your password to access your notes.';
-                        } catch (error) {
-                            console.error("Logout error:", error);
-                            showMessage(`Logout failed: ${error.message}`);
-                        }
-                    });
-
-                    // Add Category button event listener
-                    document.getElementById('addCategoryBtn').addEventListener('click', async () => {
-                        if (!window.userId) { showMessage("Please authenticate first."); return; }
-                        const categoryName = prompt("Enter category name:");
-                        if (categoryName) {
-                            try {
-                                // Add a new category document to Firestore
-                                const newCategoryRef = await addDoc(collection(window.db, 'artifacts', window.appId, 'users', window.userId, 'categories'), {
-                                    name: categoryName,
-                                    x: 50, // Default position
-                                    y: 50, // Default position
-                                    width: 300,
-                                    height: 200,
-                                    zIndex: currentZIndex + 1,
-                                    createdAt: new Date().toISOString()
-                                });
-                                showMessage(`Category "${categoryName}" added!`);
-                            } catch (error) {
-                                console.error("Error adding category:", error);
-                                showMessage(`Failed to add category: ${error.message}`);
-                            }
-                        }
-                    });
-                }
-
-
-                // --- Note/Category App Logic ---
-                const notesCanvas = document.getElementById('notes-canvas');
-                let activeDragElement = null;
-                let isResizing = false; // This variable is not actively used for custom resize logic but kept for context.
-                let initialX, initialY;
-                let currentZIndex = 10; // To manage layering of elements
-
-                // Function to bring an element to the front
-                function bringToFront(element) {
-                    currentZIndex++;
-                    element.style.zIndex = currentZIndex;
-                }
-
-                // Function to create a category DOM element
-                function createCategoryElement(categoryData) {
-                    const categoryBox = document.createElement('div');
-                    categoryBox.className = 'category-box';
-                    categoryBox.id = `category-${categoryData.id}`;
-                    categoryBox.style.left = `${categoryData.x}px`;
-                    categoryBox.style.top = `${categoryData.y}px`;
-                    categoryBox.style.width = `${categoryData.width}px`;
-                    categoryBox.style.height = `${categoryData.height}px`;
-                    categoryBox.style.zIndex = categoryData.zIndex || 10;
-                    bringToFront(categoryBox); // Bring newly created/updated to front
-
-                    categoryBox.innerHTML = `
-                        <div class="category-header">
-                            <span contenteditable="true" class="category-name-edit">${categoryData.name}</span>
-                            <div class="flex space-x-2">
-                                <button class="add-note-btn">Add Note</button>
-                                <button class="delete-btn">X</button>
-                            </div>
-                        </div>
-                        <div class="category-notes-container" id="notes-in-category-${categoryData.id}">
-                            <!-- Notes will be appended here -->
-                        </div>
-                    `;
-
-                    // Handle dragging for the category box (header part)
-                    const header = categoryBox.querySelector('.category-header');
-                    header.addEventListener('mousedown', (e) => {
-                        // Check if click is on buttons or editable text within the header
-                        if (e.target.classList.contains('add-note-btn') || e.target.classList.contains('delete-btn') || e.target.classList.contains('category-name-edit')) {
-                            return; // Don't initiate drag if clicking on these specific elements
-                        }
-                        activeDragElement = categoryBox;
-                        initialX = e.clientX - categoryBox.getBoundingClientRect().left;
-                        initialY = e.clientY - categoryBox.getBoundingClientRect().top;
-                        bringToFront(categoryBox); // Bring dragged category to front
-                    });
-
-                    // Update category name
-                    const categoryNameEdit = categoryBox.querySelector('.category-name-edit');
-                    categoryNameEdit.addEventListener('blur', async () => {
-                        const newName = categoryNameEdit.textContent.trim();
-                        if (newName !== categoryData.name) {
-                            try {
-                                await updateDoc(doc(window.db, 'artifacts', window.appId, 'users', window.userId, 'categories', categoryData.id), {
-                                    name: newName
-                                });
-                                showMessage(`Category name updated to "${newName}".`);
-                            } catch (error) {
-                                console.error("Error updating category name:", error);
-                                showMessage("Failed to update category name.");
-                            }
-                        }
-                    });
-
-                    // Delete category button
-                    categoryBox.querySelector('.delete-btn').addEventListener('click', async () => {
-                        // Using custom modal message instead of browser's confirm()
-                        const confirmationModal = document.createElement('div');
-                        confirmationModal.className = 'modal-overlay';
-                        confirmationModal.innerHTML = `
-                            <div class="modal-content">
-                                <p class="text-lg mb-4">Are you sure you want to delete category "${categoryData.name}" and all its notes?</p>
-                                <div class="flex justify-center space-x-4">
-                                    <button id="confirmDeleteCategory" class="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600">Yes, Delete</button>
-                                    <button id="cancelDeleteCategory" class="bg-gray-300 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-400">Cancel</button>
-                                </div>
-                            </div>
-                        `;
-                        document.body.appendChild(confirmationModal);
-
-                        document.getElementById('confirmDeleteCategory').addEventListener('click', async () => {
-                            try {
-                                // Delete all notes within this category first
-                                const notesQuery = query(collection(window.db, 'artifacts', window.appId, 'users', window.userId, 'notes'), where("categoryId", "==", categoryData.id));
-                                const notesSnapshot = await getDocs(notesQuery);
-                                const deleteNotePromises = notesSnapshot.docs.map(nDoc => deleteDoc(nDoc.ref));
-                                await Promise.all(deleteNotePromises);
-
-                                // Then delete the category itself
-                                await deleteDoc(doc(window.db, 'artifacts', window.appId, 'users', window.userId, 'categories', categoryData.id));
-                                showMessage(`Category "${categoryData.name}" and its notes deleted.`);
-                            } catch (error) {
-                                console.error("Error deleting category and notes:", error);
-                                showMessage(`Failed to delete category: ${error.message}`);
-                            } finally {
-                                confirmationModal.remove(); // Remove the modal
-                            }
-                        });
-
-                        document.getElementById('cancelDeleteCategory').addEventListener('click', () => {
-                            confirmationModal.remove(); // Remove the modal
-                        });
-                    });
-
-                    // Add note button for this category
-                    categoryBox.querySelector('.add-note-btn').addEventListener('click', async () => {
-                        try {
-                            const newNoteRef = await addDoc(collection(window.db, 'artifacts', window.appId, 'users', window.userId, 'notes'), {
-                                categoryId: categoryData.id,
-                                content: '', // Empty note content initially
-                                createdAt: new Date().toISOString()
-                            });
-                            showMessage("New note added to category.");
-                            // The onSnapshot listener for notes will render it
-                        } catch (error) {
-                            console.error("Error adding note:", error);
-                            showMessage("Failed to add note.");
-                        }
-                    });
-
-                    return categoryBox;
-                }
-
-                // Function to create a note DOM element
-                function createNoteElement(noteData) {
-                    const noteBox = document.createElement('div');
-                    noteBox.className = 'note-box';
-                    noteBox.id = `note-${noteData.id}`;
-                    noteBox.setAttribute('contenteditable', 'true');
-                    noteBox.textContent = noteData.content;
-                    noteBox.style.zIndex = noteData.zIndex || 1; // Notes generally have lower z-index than categories
-
-                    noteBox.addEventListener('blur', async () => {
-                        const newContent = noteBox.textContent.trim();
-                        // Ensure the delete button is not part of the content when saving
-                        const tempDiv = document.createElement('div');
-                        tempDiv.innerHTML = noteBox.innerHTML;
-                        const deleteBtn = tempDiv.querySelector('.delete-btn');
-                        if (deleteBtn) {
-                            deleteBtn.remove();
-                        }
-                        const contentToSave = tempDiv.textContent.trim();
-
-                        if (contentToSave !== noteData.content) {
-                            try {
-                                await updateDoc(doc(window.db, 'artifacts', window.appId, 'users', window.userId, 'notes', noteData.id), {
-                                    content: contentToSave
-                                });
-                                showMessage("Note content updated.");
-                            } catch (error) {
-                                console.error("Error updating note content:", error);
-                                showMessage("Failed to update note.");
-                            }
-                        }
-                    });
-
-                    // Add a delete button for the note
-                    const deleteNoteBtn = document.createElement('button');
-                    deleteNoteBtn.className = 'delete-btn ml-2 float-right'; // Tailwind classes for styling
-                    deleteNoteBtn.textContent = 'X';
-                    deleteNoteBtn.addEventListener('click', async (e) => {
-                        e.stopPropagation(); // Prevent blur event on note contenteditable
-                        // Using custom modal message instead of browser's confirm()
-                        const confirmationModal = document.createElement('div');
-                        confirmationModal.className = 'modal-overlay';
-                        confirmationModal.innerHTML = `
-                            <div class="modal-content">
-                                <p class="text-lg mb-4">Are you sure you want to delete this note?</p>
-                                <div class="flex justify-center space-x-4">
-                                    <button id="confirmDeleteNote" class="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600">Yes, Delete</button>
-                                    <button id="cancelDeleteNote" class="bg-gray-300 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-400">Cancel</button>
-                                </div>
-                            </div>
-                        `;
-                        document.body.appendChild(confirmationModal);
-
-                        document.getElementById('confirmDeleteNote').addEventListener('click', async () => {
-                            try {
-                                await deleteDoc(doc(window.db, 'artifacts', window.appId, 'users', window.userId, 'notes', noteData.id));
-                                showMessage("Note deleted.");
-                            } catch (error) {
-                                console.error("Error deleting note:", error);
-                                showMessage("Failed to delete note.");
-                            } finally {
-                                confirmationModal.remove(); // Remove the modal
-                            }
-                        });
-
-                        document.getElementById('cancelDeleteNote').addEventListener('click', () => {
-                            confirmationModal.remove(); // Remove the modal
-                        });
-                    });
-                    noteBox.prepend(deleteNoteBtn); // Add delete button at the beginning
-
-                    return noteBox;
-                }
-
-                // Global mouse move and up for dragging/resizing
-                document.addEventListener('mousemove', (e) => {
-                    if (activeDragElement) {
-                        // Calculate new position
-                        let newX = e.clientX - initialX;
-                        let newY = e.clientY - initialY;
-
-                        // Constrain within notesCanvas boundaries
-                        const canvasRect = notesCanvas.getBoundingClientRect();
-                        const elementRect = activeDragElement.getBoundingClientRect();
-
-                        newX = Math.max(0, Math.min(newX, canvasRect.width - elementRect.width));
-                        newY = Math.max(0, Math.min(newY, canvasRect.height - elementRect.height));
-
-                        activeDragElement.style.left = `${newX}px`;
-                        activeDragElement.style.top = `${newY}px`;
-                    }
-                });
-
-                document.addEventListener('mouseup', async () => {
-                    if (activeDragElement) {
-                        const elementId = activeDragElement.id.split('-')[1]; // Get ID part
-                        const elementType = activeDragElement.id.split('-')[0]; // "category" or "note"
-
-                        const x = parseFloat(activeDragElement.style.left);
-                        const y = parseFloat(activeDragElement.style.top);
-                        const zIndex = parseFloat(activeDragElement.style.zIndex);
-                        const width = activeDragElement.offsetWidth; // Get current rendered width
-                        const height = activeDragElement.offsetHeight; // Get current rendered height
-
-                        try {
-                            if (elementType === 'category') {
-                                await updateDoc(doc(window.db, 'artifacts', window.appId, 'users', window.userId, 'categories', elementId), {
-                                    x: x,
-                                    y: y,
-                                    width: width,
-                                    height: height,
-                                    zIndex: zIndex
-                                });
-                                showMessage("Category position and size saved.");
-                            }
-                        } catch (error) {
-                            console.error(`Error updating ${elementType} position:`, error);
-                            showMessage(`Failed to save ${elementType} position.`);
-                        }
-                        activeDragElement = null; // Reset active element
-                        isResizing = false; // Reset resizing flag (not actively used for custom resize handles but good to reset)
-                    }
-                });
-
-
-                // Main listener function for notes and categories
-                function setupNoteListeners() {
-                    // Listen for Categories
-                    onSnapshot(collection(window.db, 'artifacts', window.appId, 'users', window.userId, 'categories'), (snapshot) => {
-                        snapshot.docChanges().forEach(change => {
-                            const categoryData = { id: change.doc.id, ...change.doc.data() };
-                            const existingCategoryEl = document.getElementById(`category-${categoryData.id}`);
-
-                            if (change.type === "added") {
-                                if (!existingCategoryEl) { // Only add if not already present
-                                    const categoryElement = createCategoryElement(categoryData);
-                                    notesCanvas.appendChild(categoryElement);
-                                    console.log("Added category:", categoryData.id);
-                                }
-                            } else if (change.type === "modified") {
-                                if (existingCategoryEl) {
-                                    // Update position, size, zIndex, and name
-                                    existingCategoryEl.style.left = `${categoryData.x}px`;
-                                    existingCategoryEl.style.top = `${categoryData.y}px`;
-                                    existingCategoryEl.style.width = `${categoryData.width}px`;
-                                    existingCategoryEl.style.height = `${categoryData.height}px`;
-                                    existingCategoryEl.style.zIndex = categoryData.zIndex;
-                                    existingCategoryEl.querySelector('.category-name-edit').textContent = categoryData.name;
-                                    console.log("Modified category:", categoryData.id);
-                                }
-                            } else if (change.type === "removed") {
-                                if (existingCategoryEl) {
-                                    existingCategoryEl.remove();
-                                    console.log("Removed category:", categoryData.id);
-                                }
-                            }
-                        });
-                    });
-
-                    // Listen for Notes (within categories)
-                    onSnapshot(collection(window.db, 'artifacts', window.appId, 'users', window.userId, 'notes'), (snapshot) => {
-                        snapshot.docChanges().forEach(change => {
-                            const noteData = { id: change.doc.id, ...change.doc.data() };
-                            const parentCategoryContainer = document.getElementById(`notes-in-category-${noteData.categoryId}`);
-                            const existingNoteEl = document.getElementById(`note-${noteData.id}`);
-
-                            if (!parentCategoryContainer) {
-                                console.warn(`Parent category container for note ${noteData.id} not found. Note might be orphaned or category not loaded yet.`);
-                                return;
-                            }
-
-                            if (change.type === "added") {
-                                if (!existingNoteEl) {
-                                    const noteElement = createNoteElement(noteData);
-                                    parentCategoryContainer.appendChild(noteElement);
-                                    console.log("Added note:", noteData.id);
-                                }
-                            } else if (change.type === "modified") {
-                                if (existingNoteEl) {
-                                    // Remove existing delete button if any before setting textContent
-                                    const existingDeleteBtn = existingNoteEl.querySelector('.delete-btn');
-                                    if (existingDeleteBtn) {
-                                        existingDeleteBtn.remove();
-                                    }
-                                    existingNoteEl.textContent = noteData.content;
-                                    // Re-add delete button as textContent replaces it
-                                    const deleteBtn = document.createElement('button');
-                                    deleteBtn.className = 'delete-btn ml-2 float-right';
-                                    deleteBtn.textContent = 'X';
-                                    deleteBtn.addEventListener('click', async (e) => {
-                                        e.stopPropagation();
-                                        const confirmationModal = document.createElement('div');
-                                        confirmationModal.className = 'modal-overlay';
-                                        confirmationModal.innerHTML = `
-                                            <div class="modal-content">
-                                                <p class="text-lg mb-4">Are you sure you want to delete this note?</p>
-                                                <div class="flex justify-center space-x-4">
-                                                    <button id="confirmDeleteNote" class="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600">Yes, Delete</button>
-                                                    <button id="cancelDeleteNote" class="bg-gray-300 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-400">Cancel</button>
-                                                </div>
-                                            </div>
-                                        `;
-                                        document.body.appendChild(confirmationModal);
-
-                                        document.getElementById('confirmDeleteNote').addEventListener('click', async () => {
-                                            try {
-                                                await deleteDoc(doc(window.db, 'artifacts', window.appId, 'users', window.userId, 'notes', noteData.id));
-                                                showMessage("Note deleted.");
-                                            } catch (error) {
-                                                console.error("Error deleting note:", error);
-                                                showMessage("Failed to delete note.");
-                                            } finally {
-                                                confirmationModal.remove();
-                                            }
-                                        });
-                                        document.getElementById('cancelDeleteNote').addEventListener('click', () => {
-                                            confirmationModal.remove();
-                                        });
-                                    });
-                                    existingNoteEl.prepend(deleteBtn);
-                                    console.log("Modified note:", noteData.id);
-                                }
-                            } else if (change.type === "removed") {
-                                if (existingNoteEl) {
-                                    existingNoteEl.remove();
-                                    console.log("Removed note:", noteData.id);
-                                }
-                            }
-                        });
-                    });
-                }
             } catch (error) {
-                console.error("Initialization Error:", error);
-                showMessage(`App failed to load: ${error.message}. Please check console.`);
-                document.getElementById('loadingOverlay').classList.add('hidden');
-            }
-        };
-
-        // --- Customization Panel Logic (from previous version, adapted) ---
-        const root = document.documentElement;
-        const customizationPanel = document.getElementById('customizationPanel');
-        const openPanelBtn = document.getElementById('openPanelBtn');
-        const closePanelBtn = document.getElementById('closePanelBtn');
-        const primaryColorPicker = document.getElementById('primaryColorPicker');
-        const secondaryColorPicker = document.getElementById('secondaryColorPicker');
-        const gradientDirection = document.getElementById('gradientDirection');
-        const resetColorsBtn = document.getElementById('resetColorsBtn');
-        const header = document.querySelector('header');
-        const ctaSection = document.querySelector('.bg-custom-gradient-reverse'); // This section is now just a placeholder in the note app, but keeping the styling logic
-
-        function updateColors(primary, secondary, direction) {
-            root.style.setProperty('--primary-color', primary);
-            root.style.setProperty('--secondary-color', secondary);
-
-            // Update header background gradient
-            if (header) {
-                header.style.backgroundImage = `linear-gradient(${direction}, ${primary}, ${secondary})`;
-            }
-
-            // Update CTA section background gradient (if applicable, otherwise no-op)
-            let reverseDirection;
-            if (direction === 'to right') reverseDirection = 'to left';
-            else if (direction === 'to left') reverseDirection = 'to right';
-            else if (direction === 'to top') reverseDirection = 'to bottom';
-            else if (direction === 'to bottom') reverseDirection = 'to top';
-            else if (direction === 'to top right') reverseDirection = 'to bottom left';
-            else if (direction === 'to bottom left') reverseDirection = 'to top right';
-            else reverseDirection = 'to right'; // Default fallback
-
-            if (ctaSection) { // Ensure CTA section exists (it's hidden in this version)
-                 ctaSection.style.backgroundImage = `linear-gradient(${reverseDirection}, ${secondary}, ${primary})`;
+                console.error("Error initializing Firebase:", error);
+                showMessageBox("Error initializing Firebase: " + error.message, 5000);
+                hideSpinner();
             }
         }
 
-        primaryColorPicker.addEventListener('input', (event) => {
-            updateColors(event.target.value, secondaryColorPicker.value, gradientDirection.value);
-        });
+        // --- Data Persistence Functions (Firestore) ---
 
-        secondaryColorPicker.addEventListener('input', (event) => {
-            updateColors(primaryColorPicker.value, event.target.value, gradientDirection.value);
-        });
+        // Helper to get collection path based on data type (public/private)
+        function getCollectionPath(collectionName, isPublic) {
+            if (isPublic) {
+                return `artifacts/${appId}/public/data/${collectionName}`;
+            } else {
+                if (!userId) {
+                    showMessageBox("User not authenticated for private data.", 3000);
+                    throw new Error("User not authenticated.");
+                }
+                return `artifacts/${appId}/users/${userId}/${collectionName}`;
+            }
+        }
 
-        gradientDirection.addEventListener('change', (event) => {
-            updateColors(primaryColorPicker.value, secondaryColorPicker.value, event.target.value);
-        });
+        // Save categories to Firestore
+        async function saveCategories(categories) {
+            if (!userId) {
+                console.log("User not authenticated, cannot save data.");
+                return;
+            }
+            showSpinner();
+            try {
+                const categoriesCollectionRef = collection(db, getCollectionPath('categories', false)); // Always save categories as private
+                for (const category of categories) {
+                    // Prepare notes and lists for storage (serialize content if complex)
+                    const categoryToSave = {
+                        ...category,
+                        notes: category.notes.map(note => {
+                            if (note.type === 'list') {
+                                return { ...note, content: JSON.stringify(note.content) };
+                            }
+                            return note;
+                        })
+                    };
+                    // Use setDoc to create or update the document
+                    await setDoc(doc(categoriesCollectionRef, category.id), categoryToSave);
+                }
+                showMessageBox("Categories saved!", 1500);
+            } catch (e) {
+                console.error("Error saving categories: ", e);
+                showMessageBox("Error saving categories: " + e.message, 3000);
+            } finally {
+                hideSpinner();
+            }
+        }
 
-        openPanelBtn.addEventListener('click', () => {
-            customizationPanel.classList.remove('translate-x-full');
-            customizationPanel.classList.add('translate-x-0');
-        });
-        closePanelBtn.addEventListener('click', () => {
-            customizationPanel.classList.remove('translate-x-0');
-            customizationPanel.classList.add('translate-x-full');
-        });
+        // Load categories from Firestore
+        async function loadCategories() {
+            if (!userId) {
+                console.log("User not authenticated, cannot load data.");
+                return;
+            }
 
-        resetColorsBtn.addEventListener('click', () => {
-            const defaultPrimary = '#6366f1';
-            const defaultSecondary = '#a78bfa';
-            const defaultDirection = 'to right';
+            // Unsubscribe from previous snapshots to prevent memory leaks and duplicate listeners
+            unsubscribeSnapshots.forEach(unsub => unsub());
+            unsubscribeSnapshots = [];
 
-            primaryColorPicker.value = defaultPrimary;
-            secondaryColorPicker.value = defaultSecondary;
-            gradientDirection.value = defaultDirection;
-            updateColors(defaultPrimary, defaultSecondary, defaultDirection);
-            showMessage("Colors have been reset to default.");
-        });
+            showSpinner();
+            try {
+                const categoriesCollectionRef = collection(db, getCollectionPath('categories', false));
+                const q = query(categoriesCollectionRef);
 
-        // Initialize colors on customization panel load (if not handled by window.onload)
-        document.addEventListener('DOMContentLoaded', () => {
-            // Only initialize colors here if Firebase hasn't already done it via onAuthStateChanged
-            // which sets up the header gradient. If Firebase hasn't run yet, apply defaults.
-            if (!window.firebaseApp) {
-                const initialPrimary = primaryColorPicker.value;
-                const initialSecondary = secondaryColorPicker.value;
-                const initialDirection = gradientDirection.value;
-                updateColors(initialPrimary, initialSecondary, initialDirection);
+                // Listen for real-time updates
+                const unsubscribe = onSnapshot(q, (snapshot) => {
+                    const loadedCategories = [];
+                    snapshot.forEach((doc) => {
+                        const data = doc.data();
+                        // Deserialize list content if applicable
+                        const notes = data.notes ? data.notes.map(note => {
+                            if (note.type === 'list' && typeof note.content === 'string') {
+                                try {
+                                    return { ...note, content: JSON.parse(note.content) };
+                                } catch (e) {
+                                    console.error("Error parsing list content:", e);
+                                    return note; // Return original if parsing fails
+                                }
+                            }
+                            return note;
+                        }) : [];
+                        loadedCategories.push({
+                            id: doc.id,
+                            ...data,
+                            notes: notes
+                        });
+                    });
+                    // Sort categories by zIndex to ensure correct layering
+                    loadedCategories.sort((a, b) => (a.zIndex || 0) - (b.zIndex || 0));
+                    renderCategories(loadedCategories);
+                    globalCategories = loadedCategories; // Update the global state
+                    hideSpinner();
+                }, (error) => {
+                    console.error("Error listening to categories:", error);
+                    showMessageBox("Error loading categories: " + error.message, 3000);
+                    hideSpinner();
+                });
+                unsubscribeSnapshots.push(unsubscribe); // Store the unsubscribe function
+            } catch (e) {
+                console.error("Error setting up category listener:", e);
+                showMessageBox("Error setting up category listener: " + e.message, 3000);
+                hideSpinner();
+            }
+        }
+
+        // Delete a category from Firestore and its associated images from Storage
+        async function deleteCategoryFromFirestore(categoryId) {
+            if (!userId) {
+                showMessageBox("User not authenticated, cannot delete category.", 3000);
+                return;
+            }
+            showSpinner();
+            try {
+                // First, get the category to find any image URLs
+                const categoryRef = doc(db, getCollectionPath('categories', false), categoryId);
+                const categorySnap = await getDoc(categoryRef);
+                if (categorySnap.exists()) {
+                    const categoryData = categorySnap.data();
+                    // Delete associated images from Storage
+                    for (const note of categoryData.notes || []) {
+                        if (note.type === 'image' && note.imageUrl) {
+                            try {
+                                const imageRef = ref(storage, note.imageUrl);
+                                await deleteObject(imageRef);
+                                console.log("Deleted image from storage:", note.imageUrl);
+                            } catch (error) {
+                                console.warn("Could not delete image from storage (it might not exist or permissions issue):", note.imageUrl, error);
+                            }
+                        }
+                    }
+                }
+
+                // Then delete the category document
+                await deleteDoc(doc(db, getCollectionPath('categories', false), categoryId));
+                showMessageBox("Category deleted!", 1500);
+            } catch (e) {
+                console.error("Error deleting category: ", e);
+                showMessageBox("Error deleting category: " + e.message, 3000);
+            } finally {
+                hideSpinner();
+            }
+        }
+
+        // Update category position/size/zIndex in Firestore
+        async function updateCategoryInFirestore(categoryId, updates) {
+            if (!userId) {
+                console.log("User not authenticated, cannot update category.");
+                return;
+            }
+            try {
+                // Check if the document exists before attempting to update it
+                const categoryRef = doc(db, getCollectionPath('categories', false), categoryId);
+                const categorySnap = await getDoc(categoryRef);
+                if (categorySnap.exists()) {
+                    await updateDoc(categoryRef, updates);
+                } else {
+                    console.warn(`Attempted to update a non-existent category: ${categoryId}. This can happen if a new category is dragged/resized very quickly before its initial setDoc completes. Skipping update.`);
+                    // Do not create a new document here. The initial creation should handle it.
+                }
+            } catch (e) {
+                console.error("Error updating category:", e);
+                // Don't show message box for frequent updates like drag/resize
+            }
+        }
+
+        // Save a single note update
+        async function saveNoteToFirestore(categoryId, noteId, updates) {
+            if (!userId) {
+                console.log("User not authenticated, cannot save note.");
+                return;
+            }
+            try {
+                const categoryRef = doc(db, getCollectionPath('categories', false), categoryId);
+                const categorySnap = await getDoc(categoryRef);
+                if (categorySnap.exists()) {
+                    const categoryData = categorySnap.data();
+                    let notes = categoryData.notes || [];
+                    const noteIndex = notes.findIndex(n => n.id === noteId);
+
+                    if (noteIndex !== -1) {
+                        // Update existing note
+                        notes[noteIndex] = { ...notes[noteIndex], ...updates };
+                    } else {
+                        // Add new note (should not happen if noteId is correct, but for safety)
+                        notes.push(updates);
+                    }
+
+                    // Serialize list content if it's a list
+                    const notesToSave = notes.map(note => {
+                        if (note.type === 'list') {
+                            return { ...note, content: JSON.stringify(note.content) };
+                        }
+                        return note;
+                    });
+                    await updateDoc(categoryRef, { notes: notesToSave });
+                }
+            } catch (e) {
+                console.error("Error saving note:", e);
+                showMessageBox("Error saving note: " + e.message, 3000);
+            }
+        }
+
+        // Delete a note from Firestore and its associated image from Storage
+        async function deleteNoteFromFirestore(categoryId, noteId) {
+            if (!userId) {
+                showMessageBox("User not authenticated, cannot delete note.", 3000);
+                return;
+            }
+            showSpinner();
+            try {
+                const categoryRef = doc(db, getCollectionPath('categories', false), categoryId);
+                const categorySnap = await getDoc(categoryRef);
+                if (categorySnap.exists()) {
+                    const categoryData = categorySnap.data();
+                    let notes = categoryData.notes || [];
+                    const noteToDelete = notes.find(n => n.id === noteId);
+
+                    if (noteToDelete && noteToDelete.type === 'image' && noteToDelete.imageUrl) {
+                        try {
+                            const imageRef = ref(storage, noteToDelete.imageUrl);
+                            await deleteObject(imageRef);
+                            console.log("Deleted image from storage:", noteToDelete.imageUrl);
+                        } catch (error) {
+                            console.warn("Could not delete image from storage (it might not exist or permissions issue):", noteToDelete.imageUrl, error);
+                        }
+                    }
+
+                    const updatedNotes = notes.filter(n => n.id !== noteId);
+                    await updateDoc(categoryRef, { notes: updatedNotes });
+                    showMessageBox("Note deleted!", 1500);
+                }
+            } catch (e) {
+                console.error("Error deleting note: ", e);
+                showMessageBox("Error deleting note: " + e.message, 3000);
+            } finally {
+                hideSpinner();
+            }
+        }
+
+        // Upload image to Firebase Storage
+        async function uploadImageToStorage(file) {
+            if (!userId) {
+                showMessageBox("User not authenticated, cannot upload image.", 3000);
+                return null;
+            }
+            showSpinner();
+            try {
+                const storageRef = ref(storage, `images/${userId}/${Date.now()}_${file.name}`);
+                const snapshot = await uploadBytes(storageRef, file);
+                const downloadURL = await getDownloadURL(snapshot.ref);
+                showMessageBox("Image uploaded!", 1500);
+                return downloadURL;
+            } catch (e) {
+                console.error("Error uploading image: ", e);
+                showMessageBox("Error uploading image: " + e.message, 3000);
+                return null;
+            } finally {
+                hideSpinner();
+            }
+        }
+
+        // --- Global State and DOM Manipulation ---
+        let globalCategories = []; // Array to hold category objects
+
+        // Function to create a unique ID
+        function generateUniqueId() {
+            return 'id-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+        }
+
+        // Random color generation for new categories
+        const categoryBackgroundColors = [
+            'bg-blue-100', 'bg-green-100', 'bg-purple-100', 'bg-pink-100', 'bg-yellow-100',
+            'bg-indigo-100', 'bg-red-100', 'bg-teal-100', 'bg-orange-100'
+        ];
+        function getRandomCategoryColor() {
+            return categoryBackgroundColors[Math.floor(Math.random() * categoryBackgroundColors.length)];
+        }
+
+
+        // Render all categories to the canvas
+        function renderCategories(categoriesToRender) {
+            const notesCanvas = document.getElementById('notes-canvas');
+            notesCanvas.innerHTML = ''; // Clear existing content
+            categoriesToRender.forEach(category => {
+                const categoryElement = createCategoryElement(category);
+                notesCanvas.appendChild(categoryElement);
+            });
+            // Bring the currently active category to the front
+            const activeCategoryElement = document.querySelector('.category-box:focus-within');
+            if (activeCategoryElement) {
+                bringToFront(activeCategoryElement);
+            }
+        }
+
+        // Create a single category DOM element
+        function createCategoryElement(categoryData) {
+            const categoryBox = document.createElement('div');
+            categoryBox.id = `category-${categoryData.id}`;
+            // Use the stored color if available, otherwise fallback to a default or randomize (shouldn't happen with new logic)
+            const bgColorClass = categoryData.color || getRandomCategoryColor();
+            categoryBox.className = `category-box ${bgColorClass} flex flex-col p-4 rounded-lg shadow-md`;
+            categoryBox.style.left = `${categoryData.x}px`;
+            categoryBox.style.top = `${categoryData.y}px`;
+            categoryBox.style.width = `${categoryData.width}px`;
+            categoryBox.style.height = `${categoryData.height}px`;
+            categoryBox.style.zIndex = categoryData.zIndex || 1; // Default zIndex
+
+            // Stop click propagation from inside the category box
+            categoryBox.addEventListener('click', (e) => {
+                e.stopPropagation();
+            });
+            categoryBox.addEventListener('touchstart', (e) => {
+                e.stopPropagation();
+            }, { passive: false });
+
+
+            const header = document.createElement('div');
+            header.className = 'category-header flex items-center justify-between cursor-grab text-lg font-semibold mb-2 pb-2 border-b border-gray-300';
+            header.innerHTML = `
+                <span contenteditable="true" class="category-title flex-grow px-2 py-1 rounded-md hover:bg-gray-200">${categoryData.title}</span>
+                <div class="flex items-center space-x-2">
+                    <button class="add-note-btn bg-green-500 text-white p-1 rounded-md text-xs" title="Add Text Note">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M14 1a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h12zM2 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H2z"/>
+                            <path d="M8.5 4.5a.5.5 0 0 0-1 0v3h-3a.5.5 0 0 0 0 1h3v3a.5.5 0 0 0 1 0v-3h3a.5.5 0 0 0 0-1h-3v-3z"/>
+                        </svg>
+                    </button>
+                    <button class="upload-img-btn bg-purple-500 text-white p-1 rounded-md text-xs" title="Upload Image">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M6.002 5.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
+                            <path d="M1.5 2A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h13a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 14.5 2h-13zm13 1a.5.5 0 0 1 .5.5v6l-3.25-3.25a.5.5 0 0 0-.76.082L7.5 10.5 5.793 8.793a.5.5 0 0 0-.707 0L1.5 12.293V3.5a.5.5 0 0 1 .5-.5h13z"/>
+                        </svg>
+                    </button>
+                    <button class="add-list-btn bg-orange-500 text-white p-1 rounded-md text-xs" title="Add List Note">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                            <path fill-rule="evenodd" d="M2.5 11.5A.5.5 0 0 1 3 11h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5zm0-4A.5.5 0 0 1 3 7h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5zm0-4A.5.5 0 0 1 3 3h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5z"/>
+                        </svg>
+                    </button>
+                    <button class="delete-btn bg-red-500 text-white p-1 rounded-md text-xs" title="Delete Category">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                            <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13V9.5a.5.5 0 0 1 .5.5v-.5h2a.5.5 0 0 1 0 1h-2v.5a.5.5 0 0 1-.5.5h-.5v.5a.5.5 0 0 1-.5.5h-10a.5.5 0 0 1-.5-.5v-.5H2a.5.5 0 0 1 0-1h2V4H1.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h13a1 1 0 0 1 1 1v1zM6.5 2a.5.5 0 0 0-1 0v.5a.5.5 0 0 0 1 0V2zm3 0a.5.5 0 0 0-1 0v.5a.5.5 0 0 0 1 0V2z"/>
+                        </svg>
+                    </button>
+                </div>
+            `;
+            categoryBox.appendChild(header);
+
+            const notesContainer = document.createElement('div');
+            notesContainer.className = 'category-notes-container flex-grow overflow-y-auto pr-2 pt-2';
+            categoryBox.appendChild(notesContainer);
+
+            // Render existing notes
+            categoryData.notes.forEach(note => {
+                notesContainer.appendChild(createNoteElement(categoryData.id, note));
+            });
+
+            // Make category draggable
+            let isDraggingCategory = false;
+            let offset = { x: 0, y: 0 };
+            let initialMouseX, initialMouseY;
+            let initialCategoryX, initialCategoryY;
+
+            header.addEventListener('mousedown', (e) => {
+                isDraggingCategory = true;
+                initialMouseX = e.clientX;
+                initialMouseY = e.clientY;
+                initialCategoryX = categoryBox.offsetLeft;
+                initialCategoryY = categoryBox.offsetTop;
+                offset = { x: e.clientX - categoryBox.offsetLeft, y: e.clientY - categoryBox.offsetTop };
+                categoryBox.style.cursor = 'grabbing';
+                bringToFront(categoryBox); // Bring to front when dragging starts
+                document.addEventListener('mousemove', onMouseMoveCategory);
+                document.addEventListener('mouseup', onMouseUpCategory);
+            });
+
+            // Touch events for category dragging
+            header.addEventListener('touchstart', (e) => {
+                isDraggingCategory = true;
+                const touch = e.touches[0];
+                initialMouseX = touch.clientX;
+                initialMouseY = touch.clientY;
+                initialCategoryX = categoryBox.offsetLeft;
+                initialCategoryY = categoryBox.offsetTop;
+                offset = { x: touch.clientX - categoryBox.offsetLeft, y: touch.clientY - categoryBox.offsetTop };
+                categoryBox.style.cursor = 'grabbing';
+                bringToFront(categoryBox);
+                document.addEventListener('touchmove', onTouchMoveCategory, { passive: false });
+                document.addEventListener('touchend', onTouchEndCategory);
+                e.preventDefault(); // Prevent scrolling while dragging
+            }, { passive: false });
+
+            function onMouseMoveCategory(e) {
+                if (!isDraggingCategory) return;
+                const newX = e.clientX - offset.x;
+                const newY = e.clientY - offset.y;
+                categoryBox.style.left = `${newX}px`;
+                categoryBox.style.top = `${newY}px`;
+
+                // Debounced update to Firestore
+                debouncedUpdateCategoryPosition(categoryData.id, newX, newY, categoryBox.offsetWidth, categoryBox.offsetHeight, parseInt(categoryBox.style.zIndex));
+            }
+
+            function onTouchMoveCategory(e) {
+                if (!isDraggingCategory) return;
+                const touch = e.touches[0];
+                const newX = touch.clientX - offset.x;
+                const newY = touch.clientY - offset.y;
+                categoryBox.style.left = `${newX}px`;
+                categoryBox.style.top = `${newY}px`;
+
+                debouncedUpdateCategoryPosition(categoryData.id, newX, newY, categoryBox.offsetWidth, categoryBox.offsetHeight, parseInt(categoryBox.style.zIndex));
+                e.preventDefault(); // Prevent scrolling
+            }
+
+            function onMouseUpCategory() {
+                isDraggingCategory = false;
+                categoryBox.style.cursor = 'grab';
+                document.removeEventListener('mousemove', onMouseMoveCategory);
+                document.removeEventListener('mouseup', onMouseUpCategory);
+                // Ensure final position is saved
+                updateCategoryInFirestore(categoryData.id, {
+                    x: categoryBox.offsetLeft,
+                    y: categoryBox.offsetTop,
+                    width: categoryBox.offsetWidth,
+                    height: categoryBox.offsetHeight,
+                    zIndex: parseInt(categoryBox.style.zIndex)
+                });
+            }
+
+            function onTouchEndCategory() {
+                isDraggingCategory = false;
+                categoryBox.style.cursor = 'grab';
+                document.removeEventListener('touchmove', onTouchMoveCategory);
+                document.removeEventListener('touchend', onTouchEndCategory);
+                // Ensure final position is saved
+                updateCategoryInFirestore(categoryData.id, {
+                    x: categoryBox.offsetLeft,
+                    y: categoryBox.offsetTop,
+                    width: categoryBox.offsetWidth,
+                    height: categoryBox.offsetHeight,
+                    zIndex: parseInt(categoryBox.style.zIndex)
+                });
+            }
+
+            // Handle category title editing
+            const categoryTitleSpan = header.querySelector('.category-title');
+            categoryTitleSpan.addEventListener('blur', () => {
+                const newTitle = categoryTitleSpan.textContent.trim();
+                if (newTitle !== categoryData.title) {
+                    categoryData.title = newTitle;
+                    updateCategoryInFirestore(categoryData.id, { title: newTitle });
+                }
+            });
+
+            // Handle resize end (using MutationObserver for changes in style.width/height)
+            const resizeObserver = new MutationObserver((mutations) => {
+                mutations.forEach(mutation => {
+                    if (mutation.attributeName === 'style') {
+                        // Check if width or height changed significantly to trigger save
+                        const currentWidth = categoryBox.offsetWidth;
+                        const currentHeight = categoryBox.offsetHeight;
+                        if (currentWidth !== categoryData.width || currentHeight !== categoryData.height) {
+                            categoryData.width = currentWidth;
+                            categoryData.height = currentHeight;
+                            // Debounced update to Firestore for size
+                            debouncedUpdateCategoryPosition(categoryData.id, categoryBox.offsetLeft, categoryBox.offsetTop, currentWidth, currentHeight, parseInt(categoryBox.style.zIndex));
+                        }
+                    }
+                });
+            });
+            resizeObserver.observe(categoryBox, { attributes: true, attributeFilter: ['style'] });
+
+            // Add Note button handler
+            header.querySelector('.add-note-btn').addEventListener('click', () => {
+                addNoteToCategory(categoryData.id, 'text');
+            });
+
+            // Upload Image button handler
+            header.querySelector('.upload-img-btn').addEventListener('click', () => {
+                triggerImageUpload(categoryData.id);
+            });
+
+            // Add List button handler
+            header.querySelector('.add-list-btn').addEventListener('click', () => {
+                addNoteToCategory(categoryData.id, 'list');
+            });
+
+            // Delete Category button handler
+            header.querySelector('.delete-btn').addEventListener('click', () => {
+                showConfirmationModal("Are you sure you want to delete this category and all its contents?", async () => {
+                    await deleteCategoryFromFirestore(categoryData.id);
+                });
+            });
+
+            // Bring category to front on mousedown/touchstart on the category box
+            categoryBox.addEventListener('mousedown', () => bringToFront(categoryBox));
+            categoryBox.addEventListener('touchstart', (e) => {
+                bringToFront(categoryBox);
+                e.stopPropagation(); // Prevent canvas dragging when touching category
+            }, { passive: false });
+
+            return categoryBox;
+        }
+
+        // Debounce function for frequent updates like drag/resize
+        let debouncedUpdateTimer;
+        function debouncedUpdateCategoryPosition(id, x, y, width, height, zIndex) {
+            clearTimeout(debouncedUpdateTimer);
+            debouncedUpdateTimer = setTimeout(() => {
+                updateCategoryInFirestore(id, { x, y, width, height, zIndex });
+            }, 100); // Update every 100ms during dragging/resizing
+        }
+
+        // Function to bring an element to the front
+        function bringToFront(element) {
+            const currentZIndex = parseInt(element.style.zIndex) || 1;
+            let maxZIndex = 0;
+            document.querySelectorAll('.category-box').forEach(box => {
+                const z = parseInt(box.style.zIndex) || 1;
+                if (z > maxZIndex) {
+                    maxZIndex = z;
+                }
+            });
+            if (currentZIndex <= maxZIndex) {
+                element.style.zIndex = maxZIndex + 1;
+                // Update zIndex in Firestore immediately
+                updateCategoryInFirestore(element.id.replace('category-', ''), { zIndex: maxZIndex + 1 });
+            }
+        }
+
+        // Create a note DOM element
+        function createNoteElement(categoryId, noteData) {
+            const noteBox = document.createElement('div');
+            noteBox.id = `note-${noteData.id}`;
+            noteBox.className = 'note-box flex flex-col p-3 mb-2 rounded-md shadow-sm relative';
+
+            if (noteData.type === 'text') {
+                noteBox.innerHTML = `
+                    <div contenteditable="true" class="note-content-editable flex-grow">${noteData.content}</div>
+                    <div class="list-actions flex justify-end mt-2">
+                        <button class="delete-note-btn action-btn delete-btn">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0
+                                0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                                <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13V9.5a.5.5 0 0 1 .5.5v-.5h2a.5.5 0 0 1 0 1h-2v.5a.5.5 0 0 1-.5.5h-.5v.5a.5.5 0 0 1-.5.5h-10a.5.5 0 0 1-.5-.5v-.5H2a.5.5 0 0 1 0-1h2V4H1.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h13a1 1 0 0 1 1 1v1zM6.5 2a.5.5 0 0 0-1 0v.5a.5.5 0 0 0 1 0V2zm3 0a.5.5 0 0 0-1 0v.5a.5.5 0 0 0 1 0V2z"/>
+                            </svg>
+                        </button>
+                    </div>
+                `;
+                const contentEditable = noteBox.querySelector('.note-content-editable');
+                contentEditable.addEventListener('blur', () => {
+                    const newContent = contentEditable.textContent.trim();
+                    if (newContent !== noteData.content) {
+                        noteData.content = newContent;
+                        saveNoteToFirestore(categoryId, noteData.id, { content: newContent });
+                    }
+                });
+            } else if (noteData.type === 'image') {
+                const imgUrl = noteData.imageUrl || 'https://placehold.co/200x150/e0e0e0/ffffff?text=No+Image';
+                noteBox.innerHTML = `
+                    <div class="note-image-wrapper w-full h-auto">
+                        <img src="${imgUrl}" alt="Note Image" class="w-full h-full object-contain rounded-md" onerror="this.onerror=null;this.src='https://placehold.co/200x150/e0e0e0/ffffff?text=Image+Error';">
+                    </div>
+                    <div class="list-actions flex justify-end mt-2">
+                        <button class="delete-note-btn action-btn delete-btn">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                                <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13V9.5a.5.5 0 0 1 .5.5v-.5h2a.5.5 0 0 1 0 1h-2v.5a.5.5 0 0 1-.5.5h-.5v.5a.5.5 0 0 1-.5.5h-10a.5.5 0 0 1-.5-.5v-.5H2a.5.5 0 0 1 0-1h2V4H1.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h13a1 1 0 0 1 1 1v1zM6.5 2a.5.5 0 0 0-1 0v.5a.5.5 0 0 0 1 0V2z"/>
+                            </svg>
+                        </button>
+                    </div>
+                `;
+                // Add resize observation for image container if needed, similar to categories
+                const imageWrapper = noteBox.querySelector('.note-image-wrapper');
+                const imageResizeObserver = new MutationObserver((mutations) => {
+                    mutations.forEach(mutation => {
+                        if (mutation.attributeName === 'style') {
+                            const currentWidth = imageWrapper.offsetWidth;
+                            const currentHeight = imageWrapper.offsetHeight;
+                            if (currentWidth !== (noteData.width || 0) || currentHeight !== (noteData.height || 0)) {
+                                noteData.width = currentWidth;
+                                noteData.height = currentHeight;
+                                saveNoteToFirestore(categoryId, noteData.id, { width: currentWidth, height: currentHeight });
+                            }
+                        }
+                    });
+                });
+                imageResizeObserver.observe(imageWrapper, { attributes: true, attributeFilter: ['style'] });
+
+            } else if (noteData.type === 'list') {
+                noteBox.innerHTML = `
+                    <div class="list-container flex-grow"></div>
+                    <div class="list-actions flex justify-end mt-2 gap-2">
+                        <button class="add-list-item-btn action-btn add-note-btn">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
+                                <path fill-rule="evenodd" d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2z"/>
+                            </svg>
+                        </button>
+                        <button class="delete-note-btn action-btn delete-btn">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                                <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13V9.5a.5.5 0 0 1 .5.5v-.5h2a.5.5 0 0 1 0 1h-2v.5a.5.5 0 0 1-.5.5h-.5v.5a.5.5 0 0 1-.5.5h-10a.5.5 0 0 1-.5-.5v-.5H2a.5.5 0 0 1 0-1h2V4H1.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h13a1 1 0 0 1 1 1v1zM6.5 2a.5.5 0 0 0-1 0v.5a.5.5 0 0 0 1 0V2zm3 0a.5.5 0 0 0-1 0v.5a.5.5 0 0 0 1 0V2z"/>
+                            </svg>
+                        </button>
+                    </div>
+                `;
+                const listContainer = noteBox.querySelector('.list-container');
+                renderListItems(listContainer, categoryId, noteData);
+
+                noteBox.querySelector('.add-list-item-btn').addEventListener('click', () => {
+                    noteData.content.push({ id: generateUniqueId(), text: '', completed: false });
+                    renderListItems(listContainer, categoryId, noteData);
+                    saveNoteToFirestore(categoryId, noteData.id, { content: noteData.content });
+                });
+            }
+
+            noteBox.querySelector('.delete-note-btn').addEventListener('click', () => {
+                showConfirmationModal("Are you sure you want to delete this note?", async () => {
+                    await deleteNoteFromFirestore(categoryId, noteData.id);
+                });
+            });
+
+            return noteBox;
+        }
+
+        // Render list items for a list note
+        function renderListItems(listContainer, categoryId, noteData) {
+            listContainer.innerHTML = '';
+            if (noteData.content && Array.isArray(noteData.content)) {
+                noteData.content.forEach(item => {
+                    const listItemDiv = document.createElement('div');
+                    listItemDiv.className = 'list-item flex items-center mb-1';
+                    listItemDiv.innerHTML = `
+                        <input type="checkbox" class="mr-2" ${item.completed ? 'checked' : ''}>
+                        <div contenteditable="true" class="list-item-content flex-grow">${item.text}</div>
+                        <button class="delete-list-item-btn action-btn delete-btn ml-1">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                                <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13V9.5a.5.5 0 0 1 .5.5v-.5h2a.5.5 0 0 1 0 1h-2v.5a.5.5 0 0 1-.5.5h-.5v.5a.5.5 0 0 1-.5.5h-10a.5.5 0 0 1-.5-.5v-.5H2a.5.5 0 0 1 0-1h2V4H1.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h13a1 1 0 0 1 1 1v1zM6.5 2a.5.5 0 0 0-1 0v.5a.5.5 0 0 0 1 0V2zm3 0a.5.5 0 0 0-1 0v.5a.5.5 0 0 0 1 0V2z"/>
+                            </svg>
+                        </button>
+                    `;
+                    const checkbox = listItemDiv.querySelector('input[type="checkbox"]');
+                    const contentEditable = listItemDiv.querySelector('.list-item-content');
+
+                    checkbox.addEventListener('change', () => {
+                        item.completed = checkbox.checked;
+                        saveNoteToFirestore(categoryId, noteData.id, { content: noteData.content });
+                    });
+
+                    contentEditable.addEventListener('blur', () => {
+                        item.text = contentEditable.textContent.trim();
+                        saveNoteToFirestore(categoryId, noteData.id, { content: noteData.content });
+                    });
+
+                    listItemDiv.querySelector('.delete-list-item-btn').addEventListener('click', () => {
+                        noteData.content = noteData.content.filter(i => i.id !== item.id);
+                        renderListItems(listContainer, categoryId, noteData);
+                        saveNoteToFirestore(categoryId, noteData.id, { content: noteData.content });
+                    });
+
+                    listContainer.appendChild(listItemDiv);
+                });
+            }
+        }
+
+
+        // Add a new note to a specific category
+        async function addNoteToCategory(categoryId, type) {
+            const categoryIndex = globalCategories.findIndex(cat => cat.id === categoryId);
+            if (categoryIndex === -1) return;
+
+            const newNote = {
+                id: generateUniqueId(),
+                type: type, // 'text', 'image', 'list'
+                content: type === 'list' ? [] : (type === 'image' ? null : 'New Note')
+            };
+
+            // Find the current category in globalCategories and update its notes
+            globalCategories[categoryIndex].notes.push(newNote);
+
+            // Re-render only the specific category to avoid full redraw
+            const existingCategoryElement = document.getElementById(`category-${categoryId}`);
+            if (existingCategoryElement) {
+                const notesContainer = existingCategoryElement.querySelector('.category-notes-container');
+                notesContainer.appendChild(createNoteElement(categoryId, newNote));
+            }
+
+            // Save the updated category with the new note to Firestore
+            await saveCategories(globalCategories);
+        }
+
+        // --- Image Upload and Cropping Modals ---
+        let currentCropper = null;
+        let imageToCrop = null;
+        let currentCategoryIdForImage = null;
+
+        function triggerImageUpload(categoryId) {
+            currentCategoryIdForImage = categoryId;
+            document.getElementById('imageUploadInput').click();
+        }
+
+        // Handle image file selection
+        document.getElementById('imageUploadInput').addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    imageToCrop = e.target.result;
+                    showCropModal(imageToCrop);
+                };
+                reader.readAsDataURL(file);
             }
         });
+
+        function showCropModal(imageUrl) {
+            const cropModal = document.getElementById('cropModal');
+            const cropImage = document.getElementById('cropImage');
+            cropImage.src = imageUrl;
+            cropModal.classList.remove('hidden');
+
+            if (currentCropper) {
+                currentCropper.destroy(); // Destroy previous cropper instance
+            }
+
+            // Initialize Cropper.js after the image is loaded in the modal
+            cropImage.onload = () => {
+                currentCropper = new Cropper(cropImage, {
+                    aspectRatio: 16 / 9, // Example aspect ratio
+                    viewMode: 1, // Restrict the crop box to not exceed the canvas
+                });
+            };
+        }
+
+        document.getElementById('cropButton').addEventListener('click', async () => {
+            if (currentCropper) {
+                const croppedCanvas = currentCropper.getCroppedCanvas();
+                if (croppedCanvas) {
+                    // Convert canvas to blob and then upload
+                    croppedCanvas.toBlob(async (blob) => {
+                        const file = new File([blob], "cropped_image.png", { type: "image/png" });
+                        const imageUrl = await uploadImageToStorage(file);
+
+                        if (imageUrl && currentCategoryIdForImage) {
+                            const categoryIndex = globalCategories.findIndex(cat => cat.id === currentCategoryIdForImage);
+                            if (categoryIndex !== -1) {
+                                const newImageNote = {
+                                    id: generateUniqueId(),
+                                    type: 'image',
+                                    imageUrl: imageUrl,
+                                    width: 200, // Default width
+                                    height: 150 // Default height
+                                };
+                                globalCategories[categoryIndex].notes.push(newImageNote);
+                                await saveCategories(globalCategories); // Save the updated category
+                            }
+                        }
+                        currentCropper.destroy();
+                        document.getElementById('cropModal').classList.add('hidden');
+                    }, 'image/png');
+                }
+            }
+        });
+
+        document.getElementById('cancelCropButton').addEventListener('click', () => {
+            if (currentCropper) {
+                currentCropper.destroy();
+            }
+            document.getElementById('cropModal').classList.add('hidden');
+        });
+
+
+        // --- Modals (Generic) ---
+        function showConfirmationModal(message, onConfirm) {
+            document.getElementById('confirmationMessage').textContent = message;
+            document.getElementById('confirmModal').classList.remove('hidden');
+
+            const confirmBtn = document.getElementById('confirmButton');
+            const cancelBtn = document.getElementById('cancelButton');
+
+            confirmBtn.onclick = async () => {
+                await onConfirm();
+                document.getElementById('confirmModal').classList.add('hidden');
+            };
+
+            cancelBtn.onclick = () => {
+                document.getElementById('confirmModal').classList.add('hidden');
+            };
+        }
+
+
+        // --- Event Listeners and Initial Setup ---
+        window.onload = async function() {
+            console.log("Window loaded. Initializing Firebase...");
+            await initializeFirebase(); // Initialize Firebase on load
+        };
+
+
+        document.getElementById('addCategoryBtn').addEventListener('click', async () => {
+            const newCategory = {
+                id: generateUniqueId(),
+                title: 'New Category',
+                x: 50,
+                y: 50,
+                width: 300,
+                height: 200,
+                zIndex: 1,
+                notes: [],
+                color: getRandomCategoryColor() // Assign a random color on creation
+            };
+            globalCategories.push(newCategory); // Add to local state immediately
+
+            showSpinner();
+            try {
+                // Explicitly set the new document in Firestore to ensure it exists
+                const categoriesCollectionRef = collection(db, getCollectionPath('categories', false));
+                await setDoc(doc(categoriesCollectionRef, newCategory.id), newCategory); // Save the full newCategory object
+                showMessageBox("New Category Added!", 1500);
+            } catch (e) {
+                console.error("Error adding new category directly:", e);
+                showMessageBox("Error adding new category: " + e.message, 3000);
+                // Remove the category from local state if saving failed
+                globalCategories = globalCategories.filter(cat => cat.id !== newCategory.id);
+            } finally {
+                hideSpinner();
+                renderCategories(globalCategories); // Re-render to ensure UI reflects current state
+            }
+        });
+
+        // REMOVED: The notes-canvas click listener that created new categories.
+        // This was causing new categories to be created on every canvas click.
+        // document.getElementById('notes-canvas').addEventListener('click', async (e) => {
+        //     if (e.target.id === 'notes-canvas') {
+        //         const rect = e.target.getBoundingClientRect();
+        //         const x = e.clientX - rect.left - 150; // Center new category roughly on click
+        //         const y = e.clientY - rect.top - 75;
+
+        //         const newCategory = {
+        //             id: generateUniqueId(),
+        //             title: 'New Category',
+        //             x: Math.max(0, x),
+        //             y: Math.max(0, y),
+        //             width: 300,
+        //             height: 200,
+        //             zIndex: 1,
+        //             notes: [],
+        //             color: getRandomCategoryColor()
+        //         };
+        //         globalCategories.push(newCategory);
+
+        //         showSpinner();
+        //         try {
+        //             const categoriesCollectionRef = collection(db, getCollectionPath('categories', false));
+        //             await setDoc(doc(categoriesCollectionRef, newCategory.id), newCategory);
+        //             showMessageBox("New Category Added!", 1500);
+        //         } catch (e) {
+        //             console.error("Error adding new category directly on canvas click:", e);
+        //             showMessageBox("Error adding new category: " + e.message, 3000);
+        //             globalCategories = globalCategories.filter(cat => cat.id !== newCategory.id);
+        //         } finally {
+        //             hideSpinner();
+        //             renderCategories(globalCategories);
+        //         }
+        //     }
+        // });
+
+
+        document.getElementById('logoutBtn').addEventListener('click', async () => {
+            if (auth && auth.currentUser) {
+                try {
+                    await signOut(auth);
+                    showMessageBox("Logged out successfully!", 2000);
+                    // Clear canvas and reset state on logout
+                    document.getElementById('notes-canvas').innerHTML = '';
+                    globalCategories = [];
+                    userId = null;
+                    document.getElementById('user-id-display').textContent = 'User ID: N/A (Logged Out)';
+                } catch (error) {
+                    console.error("Error logging out:", error);
+                    showMessageBox("Error logging out: " + error.message, 3000);
+                }
+            } else {
+                showMessageBox("No user to log out.", 2000);
+            }
+        });
+
+
+        // Prevent dragging on notes from dragging the category itself
+        document.addEventListener('mousedown', (e) => {
+            const target = e.target;
+            if (target.closest('.note-box') || target.closest('.action-btn')) {
+                e.stopPropagation();
+            }
+        }, true); // Use capture phase to stop propagation early
+
+        document.addEventListener('touchstart', (e) => {
+            const target = e.target;
+            if (target.closest('.note-box') || target.closest('.action-btn')) {
+                e.stopPropagation();
+            }
+        }, true);
 
     </script>
 </head>
-<body class="bg-gray-100 flex flex-col min-h-screen">
-
-    <!-- Loading Overlay -->
-    <div id="loadingOverlay" class="hidden">
-        <div class="spinner"></div>
-        <p>Loading your notes...</p>
-    </div>
+<body class="bg-gray-100 min-h-screen flex flex-col items-center p-4">
 
     <!-- Message Box -->
     <div id="messageBox" class="message-box"></div>
 
-    <!-- Authentication Modal -->
-    <div id="authModal" class="modal-overlay hidden">
-        <div class="modal-content">
-            <h2 class="text-3xl font-bold mb-4 text-primary-color">Welcome to Sticky Notes!</h2>
-            <p id="authMessage" class="text-gray-700 mb-6"></p>
+    <!-- Main Container -->
+    <div class="w-full max-w-6xl bg-white rounded-xl shadow-2xl overflow-hidden flex flex-col md:flex-row">
 
-            <!-- Set Password Form -->
-            <div id="passwordForm" class="hidden">
-                <div class="mb-4">
-                    <input type="password" id="newPassword" placeholder="New Password (min 8 characters)" class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-color" minlength="8">
+        <!-- Left Panel: Controls and Info -->
+        <div class="md:w-1/4 p-6 bg-custom-gradient text-white flex flex-col justify-between">
+            <div>
+                <h1 class="text-3xl font-bold mb-4 text-center">Sticky Notes</h1>
+                <p class="text-sm mb-6 text-center opacity-80">Organize your thoughts, ideas, and tasks visually.</p>
+
+                <div class="space-y-4">
+                    <button id="addCategoryBtn" class="w-full bg-white text-primary-color py-3 px-6 rounded-lg font-semibold shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-200 ease-in-out">
+                        Add New Category
+                    </button>
+                    <button id="logoutBtn" class="w-full bg-secondary-color bg-opacity-80 text-white py-3 px-6 rounded-lg font-semibold shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-200 ease-in-out">
+                        Logout
+                    </button>
                 </div>
-                <div class="mb-6">
-                    <input type="password" id="confirmNewPassword" placeholder="Confirm New Password" class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-color">
-                </div>
-                <button id="setPasswordBtn" class="bg-primary-color text-white px-6 py-3 rounded-lg w-full hover:bg-indigo-700 transition duration-300">Set Password</button>
-                <p class="mt-4 text-sm text-gray-600">Already set a password? <a href="#" id="showLoginLink" class="text-primary-color hover:underline">Sign In</a></p>
             </div>
 
-            <!-- Login Form -->
-            <div id="loginForm" class="hidden">
-                <div class="mb-6">
-                    <input type="password" id="loginPassword" placeholder="Your Password" class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-color">
-                </div>
-                <button id="loginBtn" class="bg-primary-color text-white px-6 py-3 rounded-lg w-full hover:bg-indigo-700 transition duration-300">Login</button>
-                <p class="mt-4 text-sm text-gray-600">First time here? <a href="#" id="showSetPasswordLink" class="text-primary-color hover:underline">Set a Password</a></p>
+            <div class="mt-8 text-center">
+                <p id="user-id-display" class="text-xs opacity-70 break-all">User ID: Loading...</p>
+                <div id="loadingSpinner" class="spinner hidden mx-auto mt-4"></div>
+            </div>
+        </div>
+
+        <!-- Right Panel: Notes Canvas -->
+        <div class="md:w-3/4 p-6 relative bg-gray-50 overflow-hidden">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">Your Canvas</h2>
+            <div id="notes-canvas" class="w-full h-full relative border-2 border-dashed border-gray-300 rounded-xl bg-slate-50">
+                <!-- Categories and notes will be dynamically added here by JavaScript -->
             </div>
         </div>
     </div>
 
+    <!-- Hidden Input for Image Upload -->
+    <input type="file" id="imageUploadInput" accept="image/*" class="hidden">
 
-    <!-- Main Application Content -->
-    <div id="mainAppContent" class="hidden flex flex-col flex-grow">
-        <!-- Header Section -->
-        <header class="bg-custom-gradient text-white p-6 md:p-8 shadow-lg rounded-b-xl mb-8 transition-all duration-500 ease-in-out">
-            <div class="container mx-auto flex flex-col md:flex-row justify-between items-center">
-                <h1 class="text-3xl md:text-4xl font-bold mb-4 md:mb-0">Universal Sticky Notes</h1>
-                <div class="flex items-center space-x-4">
-                    <span id="displayUserId" class="text-sm text-gray-200 truncate"></span>
-                    <button id="logoutBtn" class="bg-white text-primary-color px-4 py-2 rounded-full text-sm font-semibold hover:bg-gray-200 transition duration-300">Logout</button>
-                </div>
+    <!-- Crop Image Modal -->
+    <div id="cropModal" class="modal-overlay hidden">
+        <div class="modal-content w-11/12 md:w-2/3 lg:w-1/2 p-6">
+            <h3 class="text-xl font-bold mb-4">Crop Image</h3>
+            <div class="w-full h-80 flex items-center justify-center overflow-hidden mb-4 bg-gray-100 rounded-md">
+                <img id="cropImage" src="#" alt="Image to Crop" class="max-w-full max-h-full block">
             </div>
-        </header>
-
-        <!-- Main Content Section -->
-        <main class="container mx-auto p-4 flex-grow">
-            <section class="text-center mb-6">
-                <button id="addCategoryBtn" class="bg-green-500 text-white px-6 py-3 rounded-full text-lg font-semibold shadow-lg hover:bg-green-600 transform hover:-translate-y-1 transition duration-300 ease-in-out focus:outline-none focus:ring-4 focus:ring-green-500 focus:ring-opacity-50">
-                    Add New Category
-                </button>
-            </section>
-
-            <!-- Notes Canvas -->
-            <div id="notes-canvas" class="min-h-[70vh] w-full mb-8">
-                <!-- Categories and Notes will be rendered here dynamically -->
-            </div>
-
-            <!-- Placeholder for old CTA section, kept for color update logic -->
-            <section class="bg-gray-800 text-white p-10 rounded-xl shadow-lg text-center hidden bg-custom-gradient-reverse transition-all duration-500 ease-in-out">
-                <h2 class="text-3xl md:text-4xl font-bold mb-4">Hidden CTA Section</h2>
-                <p class="text-lg mb-6">This section is hidden in the notes app.</p>
-            </section>
-        </main>
-
-        <!-- Footer Section -->
-        <footer class="bg-gray-800 text-white p-6 md:p-8 mt-8 rounded-t-xl shadow-lg">
-            <div class="container mx-auto text-center text-gray-400">
-                &copy; 2025 Universal Sticky Notes. All rights reserved.
-            </div>
-        </footer>
-
-        <!-- Customization Panel -->
-        <div id="customizationPanel" class="fixed right-0 top-0 h-full w-72 bg-white shadow-2xl transform translate-x-full transition-transform duration-300 ease-in-out z-50 rounded-l-xl flex flex-col custom-scrollbar">
-            <div class="flex justify-between items-center p-4 border-b border-gray-200 bg-gray-50 rounded-tl-xl">
-                <h3 class="text-xl font-semibold text-gray-800">Customize Theme</h3>
-                <button id="closePanelBtn" class="text-gray-500 hover:text-gray-700 focus:outline-none">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                </button>
-            </div>
-            <div class="p-4 flex-grow overflow-y-auto">
-                <div class="mb-6">
-                    <label for="primaryColorPicker" class="block text-gray-700 text-sm font-bold mb-2">Primary Color:</label>
-                    <input type="color" id="primaryColorPicker" value="#6366f1" class="w-full h-10 border border-gray-300 rounded-lg p-1">
-                </div>
-                <div class="mb-6">
-                    <label for="secondaryColorPicker" class="block text-gray-700 text-sm font-bold mb-2">Secondary Color:</label>
-                    <input type="color" id="secondaryColorPicker" value="#a78bfa" class="w-full h-10 border border-gray-300 rounded-lg p-1">
-                </div>
-                <div class="mb-6">
-                    <label for="gradientDirection" class="block text-gray-700 text-sm font-bold mb-2">Gradient Direction:</label>
-                    <select id="gradientDirection" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-primary-color focus:border-primary-color">
-                        <option value="to right">To Right</option>
-                        <option value="to left">To Left</option>
-                        <option value="to top">To Top</option>
-                        <option value="to bottom">To Bottom</option>
-                        <option value="to top right">To Top Right</option>
-                        <option value="to bottom left">To Bottom Left</option>
-                    </select>
-                </div>
-                <div class="mb-6">
-                    <button id="resetColorsBtn" class="w-full bg-gray-200 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-300 transition duration-200 ease-in-out">
-                        Reset Colors
-                    </button>
-                </div>
+            <div class="flex justify-center space-x-4">
+                <button id="cropButton" class="bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 transition-colors">Crop & Add</button>
+                <button id="cancelCropButton" class="bg-gray-300 text-gray-800 py-2 px-4 rounded-md hover:bg-gray-400 transition-colors">Cancel</button>
             </div>
         </div>
+    </div>
 
-        <!-- Floating Customization Button -->
-        <button id="openPanelBtn" class="fixed bottom-6 right-6 bg-primary-color text-white p-4 rounded-full shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition duration-300 ease-in-out focus:outline-none focus:ring-4 focus:ring-primary-color focus:ring-opacity-50 z-40">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37zm3.126 10.323a2.5 2.5 0 10-3.398-3.398 2.5 2.5 0 003.398 3.398z"></path></svg>
-        </button>
+    <!-- Confirmation Modal -->
+    <div id="confirmModal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <p id="confirmationMessage" class="mb-6 text-lg"></p>
+            <div class="flex justify-center space-x-4">
+                <button id="confirmButton" class="bg-red-500 text-white py-2 px-4 rounded-md hover:bg-red-600 transition-colors">Confirm</button>
+                <button id="cancelButton" class="bg-gray-300 text-gray-800 py-2 px-4 rounded-md hover:bg-gray-400 transition-colors">Cancel</button>
+            </div>
+        </div>
     </div>
 
 </body>
