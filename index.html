@@ -8,38 +8,39 @@
     <script src="https://unpkg.com/tone@14.7.58/build/Tone.js"></script>
     
     <style>
-        /* Dark red/black brick wall texture background */
+        /* Dark red/black brick wall texture background (INTENSIFIED) */
         body {
-            background-color: #0d0000; /* Very dark red/black base */
+            background-color: #0d0000;
             background-image: 
-                linear-gradient(rgba(17, 0, 0, 0.9) 1px, transparent 1px), 
-                linear-gradient(90deg, rgba(17, 0, 0, 0.9) 1px, transparent 1px);
-            background-size: 15px 15px; /* Simulates small bricks/grid */
-            font-family: 'Roboto Mono', monospace; /* Technical font */
-            overflow: hidden; /* Prevent scrollbars from absolute elements */
-            cursor: crosshair; /* The cyberpunk cursor */
+                /* Increased rgba from 17 to 30 for better visibility of the brick texture */
+                linear-gradient(rgba(30, 0, 0, 0.9) 1px, transparent 1px), 
+                linear-gradient(90deg, rgba(30, 0, 0, 0.9) 1px, transparent 1px);
+            background-size: 15px 15px;
+            font-family: 'Roboto Mono', monospace;
+            overflow: hidden;
+            cursor: crosshair;
         }
 
-        /* Neon Glow Effect - Red/Pink */
+        /* Neon Glow Effect - Red/Pink (STRONGER GLOW) */
         .neon-glow {
-            color: #ff0066; /* Base neon color */
+            color: #ff0066; 
             text-shadow: 
-                0 0 5px #ff0066,  /* Subtle inner glow */
-                0 0 15px #ff0066, /* Medium glow */
-                0 0 30px #ff3399, /* Strong outer pink glow */
-                0 0 50px #ff3399; /* Farthest pink glow */
-            transition: all 0.1s ease-in-out; /* Smooth hover transition */
+                0 0 7px #ff0066,    /* Stronger inner glow */
+                0 0 20px #ff0066,   /* Medium glow */
+                0 0 40px #ff3399,   /* Strong outer pink glow */
+                0 0 70px #ff3399;   /* Farthest pink glow */
+            transition: all 0.1s ease-in-out; 
         }
         
         /* Electric Blue Hover Glow */
         .neon-glow:hover,
         .neon-hover-active {
-            color: #00e0ff; /* Electric blue base */
+            color: #00e0ff;
             text-shadow: 
-                0 0 5px #00e0ff, 
-                0 0 15px #00e0ff, 
-                0 0 30px #0099ff, 
-                0 0 50px #0099ff;
+                0 0 7px #00e0ff, 
+                0 0 20px #00e0ff, 
+                0 0 40px #0099ff, 
+                0 0 70px #0099ff;
             cursor: pointer;
         }
 
@@ -47,10 +48,10 @@
         @keyframes flicker {
             0%, 19%, 21%, 23%, 25%, 54%, 56%, 100% {
                 text-shadow: 
-                    0 0 5px #ff0066, 
-                    0 0 15px #ff0066, 
-                    0 0 30px #ff3399, 
-                    0 0 50px #ff3399;
+                    0 0 7px #ff0066, 
+                    0 0 20px #ff0066, 
+                    0 0 40px #ff3399, 
+                    0 0 70px #ff3399;
                 opacity: 1;
             }
             20%, 24%, 55% {
@@ -59,8 +60,8 @@
             }
             22% {
                 text-shadow: 
-                    0 0 20px #ff0066, 
-                    0 0 40px #ff3399;
+                    0 0 25px #ff0066, 
+                    0 0 50px #ff3399;
                 opacity: 0.9;
             }
         }
@@ -69,13 +70,8 @@
             animation: flicker 4s infinite alternate;
         }
 
-        /* Custom icon styling for better glow */
-        .icon-size {
-            font-size: 1.5rem; /* Default icon size */
-        }
-        .arrow-size {
-            font-size: 4rem; /* Large arrow size */
-        }
+        .icon-size { font-size: 1.5rem; }
+        .arrow-size { font-size: 4rem; }
     </style>
 </head>
 
@@ -89,20 +85,20 @@
     </div>
 
     <header class="w-full pt-6 flex justify-center space-x-12 relative z-10">
-        <span class="icon-size neon-glow interactive" data-icon="?">?</span>
-        <span class="icon-size neon-glow interactive" data-icon="⚙️">⚙️</span>
-        <span id="play-pause-icon" class="icon-size neon-glow interactive" data-icon="▶️">▶️</span>
+        <span class="icon-size neon-glow interactive" data-icon="?" data-parallax-amount="5">?</span>
+        <span class="icon-size neon-glow interactive" data-icon="⚙️" data-parallax-amount="5">⚙️</span>
+        <span id="play-pause-icon" class="icon-size neon-glow interactive" data-icon="▶️" data-parallax-amount="5">▶️</span>
     </header>
 
     <main class="flex items-center justify-center w-full relative h-full">
         
-        <div class="absolute left-10 arrow-size neon-glow interactive" data-icon="<"><</div>
+        <div class="absolute left-10 arrow-size neon-glow interactive" data-icon="<" data-parallax-amount="10"><</div>
         
         <h1 id="centerpiece" class="text-7xl font-extrabold text-center select-none flicker-text neon-glow tracking-widest p-4" data-parallax-amount="20">
             owo + t3mp = &lt;3 🪐
         </h1>
 
-        <div class="absolute right-10 arrow-size neon-glow interactive" data-icon=">">></div>
+        <div class="absolute right-10 arrow-size neon-glow interactive" data-icon=">" data-parallax-amount="10">></div>
 
         <div class="absolute top-1/4 left-1/4 text-2xl neon-glow" data-parallax-amount="30">333</div>
         <div class="absolute top-1/2 right-1/4 text-4xl neon-glow" data-parallax-amount="40">x</div>
@@ -114,16 +110,16 @@
     </main>
 
     <footer class="w-full pb-6 flex justify-center space-x-4 relative z-10">
-        <span class="text-2xl neon-glow interactive" data-icon="●">●</span>
-        <span class="text-2xl neon-glow interactive" data-icon="●">●</span>
-        <span class="text-2xl neon-glow interactive" data-icon="●">●</span>
-        <span class="text-2xl neon-glow interactive" data-icon="●">●</span>
-        <span class="text-2xl neon-glow interactive" data-icon="●">●</span>
+        <span class="text-2xl neon-glow interactive" data-icon="●" data-parallax-amount="5">●</span>
+        <span class="text-2xl neon-glow interactive" data-icon="●" data-parallax-amount="5">●</span>
+        <span class="text-2xl neon-glow interactive" data-icon="●" data-parallax-amount="5">●</span>
+        <span class="text-2xl neon-glow interactive" data-icon="●" data-parallax-amount="5">●</span>
+        <span class="text-2xl neon-glow interactive" data-icon="●" data-parallax-amount="5">●</span>
     </footer>
 
 
     <script>
-        // --- TONE.JS AUDIO SETUP ---
+        // --- TONE.JS AUDIO SETUP (AUDIO CONTEXT RESUME FIX) ---
         let backgroundLoop;
         let audioInitialized = false;
         let isPlaying = false;
@@ -150,56 +146,39 @@
 
         // Lofi Background Music Setup
         function setupBackgroundMusic() {
-            // Low volume master fader
             const masterVolume = new Tone.Volume(-12).toDestination();
-
-            // Simple Lofi Chord Progression (e.g., Cmaj7 - Am7 - Fmaj7 - G7)
             const chords = [
-                ["C4", "E4", "G4", "B4"],  // Cmaj7
-                ["A3", "C4", "E4", "G4"],  // Am7
-                ["F3", "A3", "C4", "E4"],  // Fmaj7
-                ["G3", "B3", "D4", "F4"]   // G7
+                ["C4", "E4", "G4", "B4"],
+                ["A3", "C4", "E4", "G4"],
+                ["F3", "A3", "C4", "E4"],
+                ["G3", "B3", "D4", "F4"]
             ];
             
-            // Chord synth
             const chordSynth = new Tone.PolySynth(4, Tone.AMSynth, {
                 oscillator: { type: "sine" },
-                envelope: {
-                    attack: 1,
-                    decay: 1,
-                    sustain: 0.5,
-                    release: 2
-                }
+                envelope: { attack: 1, decay: 1, sustain: 0.5, release: 2 }
             }).connect(masterVolume);
             
-            // Simple Kick Drum
             const kick = new Tone.MembraneSynth({
                 pitchDecay: 0.05,
                 octaves: 8,
-                envelope: {
-                    attack: 0.001,
-                    decay: 0.4,
-                    sustain: 0.01,
-                    release: 1
-                }
+                envelope: { attack: 0.001, decay: 0.4, sustain: 0.01, release: 1 }
             }).connect(masterVolume);
 
-            // Sequencer
             let chordIndex = 0;
             const chordLoop = new Tone.Loop(time => {
                 const currentChord = chords[chordIndex % chords.length];
-                chordSynth.triggerAttackRelease(currentChord, "4n", time);
+                chordSynth.triggerAttackRelease(currentChord, "2n", time);
                 chordIndex++;
-            }, "2n"); // Play a chord every 2 beats (slow Lofi tempo)
+            }, "2n");
 
             const kickLoop = new Tone.Loop(time => {
-                // Simple pattern: kick on beat 1 and 3
                 if (Tone.Transport.position.startsWith("0:") || Tone.Transport.position.startsWith("1:")) {
                     kick.triggerAttackRelease("C2", "8n", time);
                 }
-            }, "4n"); // Check every quarter note
+            }, "4n");
 
-            Tone.Transport.bpm.value = 80; // Slow lofi tempo
+            Tone.Transport.bpm.value = 80;
 
             backgroundLoop = {
                 start: () => {
@@ -224,16 +203,17 @@
                 backgroundLoop.start();
                 playPauseIcon.textContent = "⏸️";
             }
-            playClick(); // Play click sound on toggle
+            playClick(); 
         }
 
         function initAudioContext() {
             if (audioInitialized) return;
-            Tone.context.resume().then(() => {
+            // CRITICAL: Resume audio context on user gesture
+            Tone.context.resume().then(() => { 
                 setupBackgroundMusic();
                 audioInitialized = true;
                 audioOverlay.style.display = 'none';
-                toggleAudio(); // Start playing immediately after initialization
+                toggleAudio(); 
             });
         }
 
@@ -253,14 +233,14 @@
             el.addEventListener('mouseleave', () => {
                 el.classList.remove('neon-hover-active');
             });
-            // Also allow the play/pause button to play a click on its specific click event
             if (el.id !== 'play-pause-icon') {
                  el.addEventListener('click', playClick);
             }
         });
 
 
-        // --- PARALLAX EFFECT ---
+        // --- PARALLAX EFFECT (BETTER COVERAGE) ---
+        // Now selecting all elements that can move, including the newly tagged interactive ones.
         const parallaxElements = document.querySelectorAll('[data-parallax-amount]');
         const centerX = window.innerWidth / 2;
         const centerY = window.innerHeight / 2;
@@ -269,15 +249,12 @@
             const mouseX = e.clientX;
             const mouseY = e.clientY;
 
-            // Calculate normalized position from center (-1 to 1)
             const normalizedX = (mouseX - centerX) / centerX;
             const normalizedY = (mouseY - centerY) / centerY;
 
             parallaxElements.forEach(el => {
-                // Get the custom parallax amount
                 const amount = parseFloat(el.getAttribute('data-parallax-amount')) || 15;
 
-                // Parallax shift should be in the OPPOSITE direction of mouse movement
                 const shiftX = -normalizedX * amount;
                 const shiftY = -normalizedY * amount;
 
