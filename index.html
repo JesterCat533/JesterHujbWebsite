@@ -3,306 +3,288 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jester - Interactive Portfolio</title>
-    <!-- Load Google Font: Gothic A1 (for the logo) -->
-    <link href="https://fonts.googleapis.com/css2?family=Gothic+A1:wght@900&display=swap" rel="stylesheet">
-    <!-- Load Tailwind CSS -->
+    <title>NEON CYBORG INTERFACE // ACCESS GRANTED</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Configure Tailwind to use Inter font and softer dark mode colors -->
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        'primary-red': '#FF4D4D', // A slightly brighter, more 'cute' red
-                        'bg-soft-dark': '#1A1A1A', // Softer charcoal background
-                        'card-dark': '#242424', // Card background for contrast
-                        'darkest-black': '#000000', // True black for gradient contrast
-                    },
-                    fontFamily: {
-                        sans: ['Inter', 'sans-serif'],
-                        // New font specifically for the logo
-                        logo: ['"Gothic A1"', 'sans-serif'], 
-                    },
-                    // Add subtle box shadow for cartoony depth
-                    boxShadow: {
-                        'soft-red': '0 10px 15px -3px rgba(255, 77, 77, 0.3), 0 4px 6px -2px rgba(255, 77, 77, 0.1)',
-                    }
-                }
-            }
-        }
-    </script>
+    <script src="https://unpkg.com/tone@14.7.58/build/Tone.js"></script>
+    
     <style>
-        /* Apply Inter font and smooth transitions globally */
+        /* Dark red/black brick wall texture background */
         body {
-            font-family: 'Inter', sans-serif;
-            cursor: default;
-            overflow: hidden; 
-            /* Animated Gradient Background Setup */
-            background: linear-gradient(-45deg, #1A1A1A, #000000, #FF4D4D, #1A1A1A);
-            background-size: 400% 400%;
-            animation: gradient-shift 15s ease infinite;
+            background-color: #0d0000; /* Very dark red/black base */
+            background-image: 
+                linear-gradient(rgba(17, 0, 0, 0.9) 1px, transparent 1px), 
+                linear-gradient(90deg, rgba(17, 0, 0, 0.9) 1px, transparent 1px);
+            background-size: 15px 15px; /* Simulates small bricks/grid */
+            font-family: 'Roboto Mono', monospace; /* Technical font */
+            overflow: hidden; /* Prevent scrollbars from absolute elements */
+            cursor: crosshair; /* The cyberpunk cursor */
         }
 
-        /* Keyframes for the background gradient animation */
-        @keyframes gradient-shift {
-            0% {
-                background-position: 0% 50%;
-            }
-            50% {
-                background-position: 100% 50%;
-            }
-            100% {
-                background-position: 0% 50%;
-            }
-        }
-
-        /* Custom text styling for the dynamic effect */
-        .jester-char {
-            display: inline-block;
-            transition: transform 0.1s ease-out, color 0.3s ease;
-            will-change: transform;
-            line-height: 1; 
+        /* Neon Glow Effect - Red/Pink */
+        .neon-glow {
+            color: #ff0066; /* Base neon color */
+            text-shadow: 
+                0 0 5px #ff0066,  /* Subtle inner glow */
+                0 0 15px #ff0066, /* Medium glow */
+                0 0 30px #ff3399, /* Strong outer pink glow */
+                0 0 50px #ff3399; /* Farthest pink glow */
+            transition: all 0.1s ease-in-out; /* Smooth hover transition */
         }
         
-        /* Arrow and Transition Styling */
-        .nav-arrow {
-            position: fixed;
-            top: 50%;
-            transform: translateY(-50%);
-            z-index: 100;
+        /* Electric Blue Hover Glow */
+        .neon-glow:hover,
+        .neon-hover-active {
+            color: #00e0ff; /* Electric blue base */
+            text-shadow: 
+                0 0 5px #00e0ff, 
+                0 0 15px #00e0ff, 
+                0 0 30px #0099ff, 
+                0 0 50px #0099ff;
             cursor: pointer;
-            transition: opacity 0.3s, transform 0.3s;
-            outline: none;
         }
 
-        .nav-arrow:hover {
-            opacity: 1;
-            transform: translateY(-50%) scale(1.1);
+        /* Neon Flicker Animation */
+        @keyframes flicker {
+            0%, 19%, 21%, 23%, 25%, 54%, 56%, 100% {
+                text-shadow: 
+                    0 0 5px #ff0066, 
+                    0 0 15px #ff0066, 
+                    0 0 30px #ff3399, 
+                    0 0 50px #ff3399;
+                opacity: 1;
+            }
+            20%, 24%, 55% {
+                text-shadow: none;
+                opacity: 0.8;
+            }
+            22% {
+                text-shadow: 
+                    0 0 20px #ff0066, 
+                    0 0 40px #ff3399;
+                opacity: 0.9;
+            }
         }
 
-        /* Animation overlay uses the softer red for the wipe */
-        #transition-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: #FF4D4D; /* Soft Red overlay */
-            z-index: 1000;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.3s, transform 0s 0.3s; 
-            transform: scaleX(0);
-            transform-origin: left; /* Default origin is left (L->R wipe) */
+        .flicker-text {
+            animation: flicker 4s infinite alternate;
         }
 
-        #transition-overlay.active {
-            opacity: 1;
-            transform: scaleX(1);
-            transition: transform 0.3s ease-in, opacity 0.3s ease-in; /* Transition 0.3s */
-            /* transform-origin is set by the presence of .reverse */
+        /* Custom icon styling for better glow */
+        .icon-size {
+            font-size: 1.5rem; /* Default icon size */
         }
-
-        #transition-overlay.reverse {
-            transform-origin: right; /* Sets origin to right (R->L wipe) */
-            transition: transform 0.3s ease-in, opacity 0.3s ease-in;
+        .arrow-size {
+            font-size: 4rem; /* Large arrow size */
         }
-
-        #transition-overlay.out {
-            opacity: 0;
-            transform: scaleX(0);
-            transition: transform 0.3s ease-out, opacity 0.3s ease-out 0.2s; 
-            /* REMOVED: transform-origin: right; -- now controlled by JS/reverse class */
-        }
-
     </style>
 </head>
-<body class="text-gray-100 min-h-screen flex items-center justify-center relative">
 
-    <!-- Full-screen transition overlay for the arrow effect -->
-    <div id="transition-overlay"></div>
+<body class="h-screen w-screen flex flex-col items-center justify-between text-white relative">
 
-    <!-- Main Content Card - Removed specific background color to let the body gradient shine -->
-    <main id="main-content" class="text-center p-8 md:p-12 w-full max-w-2xl bg-card-dark/80 backdrop-blur-sm rounded-3xl shadow-2xl shadow-primary-red/20 transition duration-500">
-        
-        <!-- JESTER Logo (Now uses the 'Gothic A1' font for a cute, clean look) -->
-        <h1 id="jester-title" 
-            class="text-6xl md:text-8xl lg:text-9xl font-logo font-extrabold tracking-tight cursor-default uppercase mb-4 transition duration-300 hover:shadow-soft-red/50">
-            <span class="jester-char text-primary-red">J</span>
-            <span class="jester-char text-gray-200">E</span>
-            <span class="jester-char text-primary-red">S</span>
-            <span class="jester-char text-gray-200">T</span>
-            <span class="jester-char text-primary-red">E</span>
-            <span class="jester-char text-gray-200">R</span>
-        </h1>
-        <p class="mt-4 text-xl md:text-2xl text-gray-300">Interactive Designer & Developer</p>
-        
-        <!-- Social Buttons (Round and Cartoony) -->
-        <div class="flex justify-center space-x-4 mt-8">
-            <!-- GitHub -->
-            <a href="#" class="social-btn group" aria-label="GitHub">
-                <!-- GitHub Icon SVG -->
-                <svg class="w-6 h-6 fill-current text-gray-300 group-hover:text-white transition duration-300" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61-.542-1.375-1.321-1.744-1.321-1.744-1.082-.742.083-.727.083-.727 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.492.998.108-.77.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.31.465-2.38.123-3.22-.12-.321-.439-1.542.114-3.21 0 0 .972-.321 3.173 1.223 92.012-.245 4.025-.245 6.035 0 2.201-1.544 3.173-1.223 3.173-1.223.553 1.669.234 2.889.114 3.21.439.84.465 1.91.465 3.22 0 4.61-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222 0 1.604-.015 2.894-.015 3.286 0 .315.194.694.801.576 4.771-1.587 8.2-6.085 8.2-11.385C24 5.373 18.627 0 12 0Z"/></svg>
-            </a>
-            
-            <!-- X/Twitter -->
-            <a href="#" class="social-btn group" aria-label="X/Twitter">
-                <!-- X Icon SVG -->
-                <svg class="w-6 h-6 fill-current text-gray-300 group-hover:text-white transition duration-300" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24h-6.19l-5.213-6.88L6.47 21.75H3.16l7.33-8.409-7.468-8.213h6.188L12 10.38l5.442-8.13Z"/></svg>
-            </a>
-            
-            <!-- LinkedIn -->
-            <a href="#" class="social-btn group" aria-label="LinkedIn">
-                <!-- LinkedIn Icon SVG -->
-                <svg class="w-6 h-6 fill-current text-gray-300 group-hover:text-white transition duration-300" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M20.447 20.452h-3.524v-5.592c0-1.332-.026-3.054-1.852-3.054-1.853 0-2.136 1.445-2.136 2.964v5.682H9.352V9.48H12.8v1.656h.047c.48-0.927 1.668-1.852 3.426-1.852 3.666 0 4.336 2.404 4.336 5.546l-.001 6.55H20.447ZM5.539 7.749c-1.24 0-2.235-1.008-2.235-2.249 0-1.24.995-2.249 2.235-2.249 1.24 0 2.241 1.009 2.241 2.249 0 1.24-.995 2.249-2.241 2.249ZM3.766 20.452H7.31v-10.97H3.766v10.97Z"/></svg>
-            </a>
+    <div id="audio-overlay" class="absolute inset-0 bg-black/95 z-50 flex flex-col items-center justify-center cursor-pointer">
+        <div class="text-4xl neon-glow p-8 border border-red-500 rounded-lg animate-pulse" style="cursor: pointer;">
+            >> INIT CYBERNETIC INTERFACE <<
         </div>
+        <p class="text-xs mt-4 text-red-500/50">Click to start audio sequence</p>
+    </div>
+
+    <header class="w-full pt-6 flex justify-center space-x-12 relative z-10">
+        <span class="icon-size neon-glow interactive" data-icon="?">?</span>
+        <span class="icon-size neon-glow interactive" data-icon="⚙️">⚙️</span>
+        <span id="play-pause-icon" class="icon-size neon-glow interactive" data-icon="▶️">▶️</span>
+    </header>
+
+    <main class="flex items-center justify-center w-full relative h-full">
         
+        <div class="absolute left-10 arrow-size neon-glow interactive" data-icon="<"><</div>
+        
+        <h1 id="centerpiece" class="text-7xl font-extrabold text-center select-none flicker-text neon-glow tracking-widest p-4" data-parallax-amount="20">
+            owo + t3mp = &lt;3 🪐
+        </h1>
+
+        <div class="absolute right-10 arrow-size neon-glow interactive" data-icon=">">></div>
+
+        <div class="absolute top-1/4 left-1/4 text-2xl neon-glow" data-parallax-amount="30">333</div>
+        <div class="absolute top-1/2 right-1/4 text-4xl neon-glow" data-parallax-amount="40">x</div>
+        <div class="absolute bottom-1/4 left-1/2 -translate-x-1/2 text-3xl neon-glow" data-parallax-amount="25">惡</div>
+        <div class="absolute top-10 left-10 text-xl neon-glow" data-parallax-amount="50">:</div>
+        <div class="absolute bottom-10 right-10 text-5xl neon-glow" data-parallax-amount="35">!</div>
+        <div class="absolute top-3/4 left-1/4 text-xl neon-glow" data-parallax-amount="45">(ノ_・)</div>
+
     </main>
 
-    <!-- Navigation Arrows -->
+    <footer class="w-full pb-6 flex justify-center space-x-4 relative z-10">
+        <span class="text-2xl neon-glow interactive" data-icon="●">●</span>
+        <span class="text-2xl neon-glow interactive" data-icon="●">●</span>
+        <span class="text-2xl neon-glow interactive" data-icon="●">●</span>
+        <span class="text-2xl neon-glow interactive" data-icon="●">●</span>
+        <span class="text-2xl neon-glow interactive" data-icon="●">●</span>
+    </footer>
 
-    <!-- Left Arrow (Previous) -->
-    <button id="arrow-left" class="nav-arrow left-4 md:left-8 opacity-60 p-4 rounded-full hover:bg-primary-red/20 focus:outline-none transition">
-        <!-- SVG Icon: Chevron Left -->
-        <svg class="w-10 h-10 text-primary-red" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
-        </svg>
-    </button>
-
-    <!-- Right Arrow (Next) -->
-    <button id="arrow-right" class="nav-arrow right-4 md:right-8 opacity-60 p-4 rounded-full hover:bg-primary-red/20 focus:outline-none transition">
-        <!-- SVG Icon: Chevron Right -->
-        <svg class="w-10 h-10 text-primary-red" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-        </svg>
-    </button>
 
     <script>
-        const titleElement = document.getElementById('jester-title');
-        const chars = document.querySelectorAll('.jester-char');
-        const overlay = document.getElementById('transition-overlay');
-        const mainContent = document.getElementById('main-content');
-        const leftArrow = document.getElementById('arrow-left');
-        const rightArrow = document.getElementById('arrow-right');
-        
-        // --- Social Button Styling Class ---
-        document.querySelectorAll('.social-btn').forEach(btn => {
-            btn.className += ' w-12 h-12 flex items-center justify-center rounded-full bg-card-dark border border-gray-700 hover:border-primary-red transition duration-300 transform hover:scale-110';
+        // --- TONE.JS AUDIO SETUP ---
+        let backgroundLoop;
+        let audioInitialized = false;
+        let isPlaying = false;
+        const playPauseIcon = document.getElementById('play-pause-icon');
+        const audioOverlay = document.getElementById('audio-overlay');
+
+        // Digital click/beep sound
+        const clickSynth = new Tone.Synth({
+            oscillator: { type: "square" },
+            envelope: {
+                attack: 0.001,
+                decay: 0.05,
+                sustain: 0.0,
+                release: 0.01
+            }
+        }).toDestination();
+        const clickVolume = new Tone.Volume(-15).toDestination();
+        clickSynth.connect(clickVolume);
+
+        function playClick() {
+            if (!audioInitialized) return;
+            clickSynth.triggerAttackRelease("C6", "32n");
+        }
+
+        // Lofi Background Music Setup
+        function setupBackgroundMusic() {
+            // Low volume master fader
+            const masterVolume = new Tone.Volume(-12).toDestination();
+
+            // Simple Lofi Chord Progression (e.g., Cmaj7 - Am7 - Fmaj7 - G7)
+            const chords = [
+                ["C4", "E4", "G4", "B4"],  // Cmaj7
+                ["A3", "C4", "E4", "G4"],  // Am7
+                ["F3", "A3", "C4", "E4"],  // Fmaj7
+                ["G3", "B3", "D4", "F4"]   // G7
+            ];
+            
+            // Chord synth
+            const chordSynth = new Tone.PolySynth(4, Tone.AMSynth, {
+                oscillator: { type: "sine" },
+                envelope: {
+                    attack: 1,
+                    decay: 1,
+                    sustain: 0.5,
+                    release: 2
+                }
+            }).connect(masterVolume);
+            
+            // Simple Kick Drum
+            const kick = new Tone.MembraneSynth({
+                pitchDecay: 0.05,
+                octaves: 8,
+                envelope: {
+                    attack: 0.001,
+                    decay: 0.4,
+                    sustain: 0.01,
+                    release: 1
+                }
+            }).connect(masterVolume);
+
+            // Sequencer
+            let chordIndex = 0;
+            const chordLoop = new Tone.Loop(time => {
+                const currentChord = chords[chordIndex % chords.length];
+                chordSynth.triggerAttackRelease(currentChord, "4n", time);
+                chordIndex++;
+            }, "2n"); // Play a chord every 2 beats (slow Lofi tempo)
+
+            const kickLoop = new Tone.Loop(time => {
+                // Simple pattern: kick on beat 1 and 3
+                if (Tone.Transport.position.startsWith("0:") || Tone.Transport.position.startsWith("1:")) {
+                    kick.triggerAttackRelease("C2", "8n", time);
+                }
+            }, "4n"); // Check every quarter note
+
+            Tone.Transport.bpm.value = 80; // Slow lofi tempo
+
+            backgroundLoop = {
+                start: () => {
+                    chordLoop.start(0);
+                    kickLoop.start(0);
+                    Tone.Transport.start();
+                    isPlaying = true;
+                },
+                stop: () => {
+                    Tone.Transport.stop();
+                    isPlaying = false;
+                }
+            };
+        }
+
+        function toggleAudio() {
+            if (!backgroundLoop) return;
+            if (isPlaying) {
+                backgroundLoop.stop();
+                playPauseIcon.textContent = "▶️";
+            } else {
+                backgroundLoop.start();
+                playPauseIcon.textContent = "⏸️";
+            }
+            playClick(); // Play click sound on toggle
+        }
+
+        function initAudioContext() {
+            if (audioInitialized) return;
+            Tone.context.resume().then(() => {
+                setupBackgroundMusic();
+                audioInitialized = true;
+                audioOverlay.style.display = 'none';
+                toggleAudio(); // Start playing immediately after initialization
+            });
+        }
+
+        // Event listener for the overlay click to initialize audio
+        audioOverlay.addEventListener('click', initAudioContext);
+        playPauseIcon.addEventListener('click', toggleAudio);
+
+
+        // --- INTERACTIVE ELEMENTS (HOVER EFFECT) ---
+        const interactiveElements = document.querySelectorAll('.interactive');
+
+        interactiveElements.forEach(el => {
+            el.addEventListener('mouseenter', () => {
+                el.classList.add('neon-hover-active');
+                playClick();
+            });
+            el.addEventListener('mouseleave', () => {
+                el.classList.remove('neon-hover-active');
+            });
+            // Also allow the play/pause button to play a click on its specific click event
+            if (el.id !== 'play-pause-icon') {
+                 el.addEventListener('click', playClick);
+            }
         });
 
 
-        // --- 1. Dynamic Text Interaction (Mouse Follow) ---
+        // --- PARALLAX EFFECT ---
+        const parallaxElements = document.querySelectorAll('[data-parallax-amount]');
+        const centerX = window.innerWidth / 2;
+        const centerY = window.innerHeight / 2;
 
-        // Listen for mouse movement over the main title
-        titleElement.addEventListener('mousemove', (e) => {
-            const rect = titleElement.getBoundingClientRect();
-            // Calculate mouse position relative to the center of the title
-            const centerX = rect.left + rect.width / 2;
-            const centerY = rect.top + rect.height / 2;
-            
+        document.addEventListener('mousemove', (e) => {
             const mouseX = e.clientX;
             const mouseY = e.clientY;
 
-            // Calculate movement vectors (normalized)
-            const dx = (mouseX - centerX) / (rect.width / 2); // -1 to 1
-            const dy = (mouseY - centerY) / (rect.height / 2); // -1 to 1
+            // Calculate normalized position from center (-1 to 1)
+            const normalizedX = (mouseX - centerX) / centerX;
+            const normalizedY = (mouseY - centerY) / centerY;
 
-            // Base maximum translation distance in pixels (subtle movement for "cute" look)
-            const maxTranslate = 5; 
+            parallaxElements.forEach(el => {
+                // Get the custom parallax amount
+                const amount = parseFloat(el.getAttribute('data-parallax-amount')) || 15;
 
-            // Iterate over each character and apply a proportional shift
-            chars.forEach((char, index) => {
-                // Introduce an index-based delay/scale to create a wave effect
-                const offset = index / (chars.length - 1); // 0 to 1
+                // Parallax shift should be in the OPPOSITE direction of mouse movement
+                const shiftX = -normalizedX * amount;
+                const shiftY = -normalizedY * amount;
 
-                // Calculate the final translation based on mouse vector and offset
-                const translateX = dx * maxTranslate * (1 - offset * 0.5);
-                const translateY = dy * maxTranslate * offset;
-
-                // Apply transformation
-                char.style.transform = `translate(${translateX}px, ${translateY}px) scale(1.03)`;
-                
-                // Change color subtly on movement
-                char.style.color = index % 2 === 0 
-                    ? `hsl(350, 90%, ${60 + Math.abs(dx * 10)}%)` // Primary Red 
-                    : `hsl(0, 0%, ${90 + Math.abs(dy * 5)}%)`;  // White/Gray
+                el.style.transform = `translate(${shiftX}px, ${shiftY}px)`;
             });
         });
-
-        // Reset the transformation when the mouse leaves
-        titleElement.addEventListener('mouseleave', () => {
-            chars.forEach(char => {
-                char.style.transform = 'translate(0, 0) scale(1)';
-                // Reset color back to default defined by Tailwind classes
-                char.style.color = ''; 
-            });
-        });
-
-
-        // --- 2. Arrow Transition Effect (FIXED LOGIC) ---
-
-        /**
-         * Simulates a "page switch" transition using a full-screen red overlay.
-         * @param {string} direction 'left' or 'right'
-         */
-        function handleArrowClick(direction) {
-            // Disable buttons during transition
-            leftArrow.disabled = true;
-            rightArrow.disabled = true;
-
-            // --- Phase 1: Wipe In (Bar expands to cover screen) ---
-            overlay.classList.remove('out');
-            mainContent.style.opacity = '0'; 
-
-            if (direction === 'left') {
-                // Left Arrow (Previous): Bar wipes R -> L. Origin must be RIGHT.
-                overlay.classList.add('reverse'); 
-            } else { 
-                // Right Arrow (Next): Bar wipes L -> R. Origin must be LEFT (default).
-                overlay.classList.remove('reverse'); 
-            }
-            overlay.classList.add('active');
-
-            // Wait for the wipe-in to complete (0.3s)
-            setTimeout(() => {
-                // *** Content change would go here ***
-                
-                // --- Phase 2: Wipe Out (Bar shrinks to reveal new content) ---
-                overlay.classList.remove('active'); // Remove active state first
-
-                if (direction === 'left') {
-                    // Entered R->L. To exit smoothly, shrink L->R. Origin must be LEFT (default).
-                    overlay.classList.remove('reverse');
-                } else { 
-                    // Entered L->R. To exit smoothly, shrink R->L. Origin must be RIGHT.
-                    overlay.classList.add('reverse'); 
-                }
-                
-                overlay.classList.add('out'); 
-                mainContent.style.opacity = '1';
-
-                // Wait for the wipe-out to complete (0.5s)
-                setTimeout(() => {
-                    overlay.classList.remove('out', 'reverse'); // Clean up classes
-                    // Re-enable buttons
-                    leftArrow.disabled = false;
-                    rightArrow.disabled = false;
-                }, 500); 
-            }, 300);
-        }
-
-        leftArrow.addEventListener('click', () => handleArrowClick('left'));
-        rightArrow.addEventListener('click', () => handleArrowClick('right'));
-
-        // Optional: Add a subtle overall fade-in on load for extra smoothness
-        mainContent.style.transition = 'opacity 1s ease-out';
-        mainContent.style.opacity = '0';
-        window.onload = () => {
-             mainContent.style.opacity = '1';
-        };
-
     </script>
+
 </body>
 </html>
