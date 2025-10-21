@@ -3,265 +3,731 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NEON CYBORG INTERFACE // ACCESS GRANTED</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/tone@14.7.58/build/Tone.js"></script>
-    
+    <title>Jester - Femboy Introduction</title>
+    <!-- Load Tailwind CSS --><script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Tone.js for music and sound effects -->
+    <script src="https://unpkg.com/tone@14.8.49/build/Tone.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght400;700;900&family=Bungee+Inline&display=swap" rel="stylesheet">
     <style>
-        /* Dark red/black brick wall texture background (INTENSIFIED) */
-        body {
-            background-color: #0d0000;
-            background-image: 
-                /* Increased rgba from 17 to 30 for better visibility of the brick texture */
-                linear-gradient(rgba(30, 0, 0, 0.9) 1px, transparent 1px), 
-                linear-gradient(90deg, rgba(30, 0, 0, 0.9) 1px, transparent 1px);
-            background-size: 15px 15px;
-            font-family: 'Roboto Mono', monospace;
-            overflow: hidden;
-            cursor: crosshair;
+        /* Define custom colors and font */
+        :root {
+            --deep-red: #B70000;
+            --dark-bg: #0A0A0A;
+            --light-bg: #1A1A1A;
+            --glitch-red: #FF0000; /* Brighter red for slot flash */
         }
 
-        /* Neon Glow Effect - Red/Pink (STRONGER GLOW) */
-        .neon-glow {
-            color: #ff0066; 
-            text-shadow: 
-                0 0 7px #ff0066,    /* Stronger inner glow */
-                0 0 20px #ff0066,   /* Medium glow */
-                0 0 40px #ff3399,   /* Strong outer pink glow */
-                0 0 70px #ff3399;   /* Farthest pink glow */
-            transition: all 0.1s ease-in-out; 
+        /* Custom slot font */
+        .font-jester {
+            font-family: 'Bungee Inline', cursive;
+            text-shadow: 0 0 10px var(--deep-red), 0 0 20px rgba(183, 0, 0, 0.5);
+            line-height: 1; /* Ensure tight line-height for interactive effect */
         }
         
-        /* Electric Blue Hover Glow */
-        .neon-glow:hover,
-        .neon-hover-active {
-            color: #00e0ff;
-            text-shadow: 
-                0 0 7px #00e0ff, 
-                0 0 20px #00e0ff, 
-                0 0 40px #0099ff, 
-                0 0 70px #0099ff;
-            cursor: pointer;
+        .title-char {
+            display: inline-block;
+            transition: transform 0.1s ease-out, text-shadow 0.1s ease-out;
         }
 
-        /* Neon Flicker Animation */
-        @keyframes flicker {
-            0%, 19%, 21%, 23%, 25%, 54%, 56%, 100% {
-                text-shadow: 
-                    0 0 7px #ff0066, 
-                    0 0 20px #ff0066, 
-                    0 0 40px #ff3399, 
-                    0 0 70px #ff3399;
-                opacity: 1;
-            }
-            20%, 24%, 55% {
-                text-shadow: none;
-                opacity: 0.8;
-            }
-            22% {
-                text-shadow: 
-                    0 0 25px #ff0066, 
-                    0 0 50px #ff3399;
-                opacity: 0.9;
-            }
+        /* Full screen background with subtle noise/texture */
+        .bg-pattern {
+            background-color: var(--dark-bg);
+            background-image: radial-gradient(var(--light-bg) 2px, transparent 0);
+            background-size: 30px 30px;
+            transition: background-image 0.5s ease-in-out; 
+        }
+        
+        /* Background transforms into repeating '6' pattern during spin */
+        .bg-pattern.sixes {
+            background-color: var(--dark-bg);
+            background-image: repeating-linear-gradient(45deg, rgba(255, 0, 0, 0.2) 0, rgba(255, 0, 0, 0.2) 2px, transparent 2px, transparent 15px),
+                              repeating-linear-gradient(-45deg, rgba(255, 0, 0, 0.2) 0, rgba(255, 0, 0, 0.2) 2px, transparent 2px, transparent 15px),
+                              radial-gradient(circle at 50% 50%, #FF0000 3px, transparent 3px);
+            background-size: 30px 30px;
+            background-position: 0 0;
+            animation: pulse-sixes 0.5s infinite alternate;
+        }
+        
+        @keyframes pulse-sixes {
+            0% { opacity: 0.5; filter: drop-shadow(0 0 5px var(--deep-red)); }
+            100% { opacity: 0.8; filter: drop-shadow(0 0 15px var(--glitch-red)); }
         }
 
-        .flicker-text {
-            animation: flicker 4s infinite alternate;
+
+        /* Slot Reel Styling */
+        .reel-container {
+            height: 100px;
+            overflow: hidden;
+            border-radius: 0.75rem;
+            box-shadow: 0 0 15px var(--deep-red), inset 0 0 5px rgba(255, 255, 255, 0.2);
+            position: relative;
+            background-color: rgba(0, 0, 0, 0.8);
+            border: 2px solid var(--deep-red);
         }
 
-        .icon-size { font-size: 1.5rem; }
-        .arrow-size { font-size: 4rem; }
+        .reel {
+            will-change: transform;
+            transition: transform 0.1s linear; 
+            position: relative; 
+        }
+
+        /* New style for individual slot items */
+        .slot-item {
+            height: 100px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        /* Transition effect for the entire site when changing state */
+        .fade-transition {
+            transition: opacity 0.5s ease-in-out, transform 0.5s ease-in-out;
+        }
+
+        /* Custom gambling heart icon (SVG-like styling) */
+        .heart-diamond {
+            width: 1.5rem;
+            height: 1.5rem;
+            position: relative;
+            transform: rotate(-45deg);
+            display: inline-block;
+        }
+        .heart-diamond::before,
+        .heart-diamond::after {
+            content: "";
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background-color: var(--deep-red);
+            border-radius: 50% 50% 0 0;
+            box-shadow: 0 0 8px var(--deep-red);
+        }
+        .heart-diamond::before {
+            left: 50%;
+            transform: translateX(-50%) rotate(-45deg);
+        }
+        .heart-diamond::after {
+            top: 50%;
+            transform: translateY(-50%) rotate(45deg);
+        }
+        .diamond {
+            width: 1.5rem;
+            height: 1.5rem;
+            background-color: var(--deep-red);
+            transform: rotate(45deg);
+            box-shadow: 0 0 8px var(--deep-red);
+            border-radius: 2px;
+            margin: 0 4px;
+        }
+
+        /* Keyframes for a pulsating glow */
+        @keyframes pulse-red {
+            0%, 100% { box-shadow: 0 0 10px var(--deep-red), 0 0 20px var(--deep-red); }
+            50% { box-shadow: 0 0 25px var(--deep-red), 0 0 40px rgba(183, 0, 0, 0.8); }
+        }
+        #spinButton { animation: pulse-red 2s infinite; }
+
+
+        /* Red Flash Overlay Styling */
+        #redFlashOverlay {
+            transition: opacity 0.5s ease-out; 
+        }
+        /* Class to instantly activate the solid red state */
+        .red-flash-active {
+            opacity: 1 !important;
+        }
+
+        /* Ensure responsive text size for the slot items */
+        .slot-item-text {
+             font-size: 3rem; 
+        }
+        @media (max-width: 768px) {
+            .slot-item-text {
+                font-size: 2.25rem; 
+            }
+        }
+        
+        /* Updated: Info Text Styling (no smoke overlay needed) */
+        #infoTab p, #infoTab h2 {
+            color: var(--deep-red); 
+            text-shadow: 0 0 10px var(--deep-red), 0 0 20px rgba(183, 0, 0, 0.5); 
+            animation: none; 
+            transition: none;
+        }
     </style>
 </head>
+<body id="body" class="bg-pattern min-h-screen text-white flex flex-col items-center justify-center p-4" style="font-family: 'Inter', sans-serif;">
 
-<body class="h-screen w-screen flex flex-col items-center justify-between text-white relative">
+    <!-- Background Music Player -->
+    <audio id="bgMusic" loop preload="auto" style="display: none;">
+        <!-- CONFIRMED DIRECT LINK -->
+        <source src="https://drive.google.com/uc?export=download&id=1dB-xeNKASo4edqPzh0GsyiGZkkoxOfI2" type="audio/mp3">
+        Your browser does not support the audio element.
+    </audio>
 
-    <div id="audio-overlay" class="absolute inset-0 bg-black/95 z-50 flex flex-col items-center justify-center cursor-pointer">
-        <div class="text-4xl neon-glow p-8 border border-red-500 rounded-lg animate-pulse" style="cursor: pointer;">
-            >> INIT CYBERNETIC INTERFACE <<
-        </div>
-        <p class="text-xs mt-4 text-red-500/50">Click to start audio sequence</p>
-    </div>
+    <!-- Main Content Container (Slot Machine) -->
+    <div id="slotScreen" class="fade-transition w-full max-w-4xl p-6 md:p-12 text-center relative z-10">
 
-    <header class="w-full pt-6 flex justify-center space-x-12 relative z-10">
-        <span class="icon-size neon-glow interactive" data-icon="?" data-parallax-amount="5">?</span>
-        <span class="icon-size neon-glow interactive" data-icon="⚙️" data-parallax-amount="5">⚙️</span>
-        <span id="play-pause-icon" class="icon-size neon-glow interactive" data-icon="▶️" data-parallax-amount="5">▶️</span>
-    </header>
-
-    <main class="flex items-center justify-center w-full relative h-full">
-        
-        <div class="absolute left-10 arrow-size neon-glow interactive" data-icon="<" data-parallax-amount="10"><</div>
-        
-        <h1 id="centerpiece" class="text-7xl font-extrabold text-center select-none flicker-text neon-glow tracking-widest p-4" data-parallax-amount="20">
-            owo + t3mp = &lt;3 🪐
+        <!-- JESTER Title/Logo (Now split for mouse interaction) -->
+        <h1 id="jesterTitleMain" class="font-jester text-7xl md:text-8xl mb-8 tracking-widest cursor-pointer" style="color: var(--deep-red); display: inline-block;">
+            <span class="title-char">J</span><span class="title-char">E</span><span class="title-char">S</span><span class="title-char">T</span><span class="title-char">E</span><span class="title-char">R</span>
         </h1>
 
-        <div class="absolute right-10 arrow-size neon-glow interactive" data-icon=">" data-parallax-amount="10">></div>
+        <!-- Subtitle/Artistic Integration -->
+        <p id="tagline" class="text-xl md:text-3xl text-gray-300 mb-12">
+            The deck is stacked... Time to play.
+        </p>
 
-        <div class="absolute top-1/4 left-1/4 text-2xl neon-glow" data-parallax-amount="30">333</div>
-        <div class="absolute top-1/2 right-1/4 text-4xl neon-glow" data-parallax-amount="40">x</div>
-        <div class="absolute bottom-1/4 left-1/2 -translate-x-1/2 text-3xl neon-glow" data-parallax-amount="25">惡</div>
-        <div class="absolute top-10 left-10 text-xl neon-glow" data-parallax-amount="50">:</div>
-        <div class="absolute bottom-10 right-10 text-5xl neon-glow" data-parallax-amount="35">!</div>
-        <div class="absolute top-3/4 left-1/4 text-xl neon-glow" data-parallax-amount="45">(ノ_・)</div>
+        <!-- The Interactive Slot Machine Area -->
+        <div class="flex flex-col items-center space-y-8">
+            
+            <!-- Reel Display Container -->
+            <div id="slotDisplay" class="flex justify-center space-x-2 md:space-x-4 w-full max-w-xl p-4 bg-gray-900/70 backdrop-blur-sm rounded-3xl border border-red-800 shadow-2xl" style="box-shadow: 0 0 30px rgba(183, 0, 0, 0.5);">
+                
+                <!-- Reel 1 -->
+                <div class="reel-container flex-1">
+                    <div id="reel1" class="reel">
+                        <!-- Initial Content: 6 -->
+                        <div class="slot-item">
+                            <div class="slot-item-text font-bold font-jester text-white" style="color: var(--deep-red);">6</div>
+                        </div>
+                    </div>
+                </div>
 
-    </main>
+                <!-- Reel 2 -->
+                <div class="reel-container flex-1">
+                    <div id="reel2" class="reel">
+                        <!-- Initial Content: 6 -->
+                        <div class="slot-item">
+                            <div class="slot-item-text font-bold font-jester text-white" style="color: var(--deep-red);">6</div>
+                        </div>
+                    </div>
+                </div>
 
-    <footer class="w-full pb-6 flex justify-center space-x-4 relative z-10">
-        <span class="text-2xl neon-glow interactive" data-icon="●" data-parallax-amount="5">●</span>
-        <span class="text-2xl neon-glow interactive" data-icon="●" data-parallax-amount="5">●</span>
-        <span class="text-2xl neon-glow interactive" data-icon="●" data-parallax-amount="5">●</span>
-        <span class="text-2xl neon-glow interactive" data-icon="●" data-parallax-amount="5">●</span>
-        <span class="text-2xl neon-glow interactive" data-icon="●" data-parallax-amount="5">●</span>
-    </footer>
+                <!-- Reel 3 -->
+                <div class="reel-container flex-1">
+                    <div id="reel3" class="reel">
+                        <!-- Initial Content: 6 -->
+                        <div class="slot-item">
+                            <div class="slot-item-text font-bold font-jester text-white" style="color: var(--deep-red);">6</div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Spin Button -->
+            <button id="spinButton" onclick="spinSlots()" 
+                    class="px-8 py-3 text-2xl font-bold text-black rounded-full shadow-lg transition duration-300 ease-in-out hover:scale-105 transform disabled:opacity-50"
+                    style="background-color: var(--deep-red); border: 4px solid white; text-shadow: 1px 1px 2px #000;">
+                <span class="inline-block heart-diamond mr-2"></span>
+                REVEAL MY CARDS
+                <span class="inline-block heart-diamond ml-2"></span>
+            </button>
+        </div>
+
+    </div>
+
+    <!-- Info Tab (Hidden by default, shown after 6-6-6) -->
+    <div id="infoTab" class="fade-transition w-full max-w-4xl p-6 md:p-12 text-center relative z-10 flex flex-col items-center justify-center min-h-screen" style="display: none; opacity: 0;">
+        <h2 class="font-jester text-6xl md:text-7xl mb-10 tracking-widest" id="jesterProfileTitle">
+            JESTER'S PROFILE
+        </h2>
+        
+        <!-- Profile Text - No smoke overlay needed -->
+        <div class="max-w-2xl w-full p-8 md:p-12">
+            <p class="text-xl md:text-3xl font-bold mb-8">
+                Hello there! My name is <span class="profile-text" id="nameSpan">JESTER</span>.
+            </p>
+            <p class="text-xl md:text-3xl font-bold mb-8">
+                I am <span class="profile-text" id="ageSpan">20</span> years old.
+            </p>
+            <p class="text-xl md:text-3xl font-bold mb-10">
+                My personality? I'm delightfully <span class="profile-text" id="personalitySpan">Mischievous</span>!
+            </p>
+            <p class="text-lg mt-8" style="color: var(--deep-red);">
+                Ready to play some more?
+            </p>
+        </div>
+        
+        <button id="backButton" onclick="resetToSlots()" 
+                class="mt-10 px-6 py-2 text-xl font-bold text-black rounded-full shadow-lg transition duration-300 ease-in-out hover:scale-105 transform"
+                style="background-color: var(--deep-red); border: 2px solid white; text-shadow: 1px 1px 2px #000;">
+            <span class="inline-block heart-diamond mr-2 w-5 h-5"></span>
+            BACK TO THE GAME
+            <span class="inline-block heart-diamond ml-2 w-5 h-5"></span>
+        </button>
+    </div>
+
+    <!-- Background Art (Hearts and Card Suits) -->
+    <div class="absolute inset-0 z-0 pointer-events-none">
+        <!-- Floating Red Heart 1 -->
+        <div class="absolute top-1/4 left-1/12 text-6xl opacity-30 animate-pulse" style="color: var(--deep-red);">
+            <div class="heart-diamond w-12 h-12"></div>
+        </div>
+        <!-- Floating Red Diamond 2 -->
+        <div class="absolute bottom-1/12 right-1/4 text-8xl opacity-30 animate-pulse delay-75" style="color: var(--deep-red);">
+            <div class="diamond w-16 h-16"></div>
+        </div>
+        <!-- Floating Red Heart 3 -->
+        <div class="absolute top-1/2 right-1/10 text-4xl opacity-30 animate-pulse delay-150" style="color: var(--deep-red);">
+            <div class="heart-diamond w-8 h-8"></div>
+        </div>
+    </div>
+
+    <!-- Red Flash Overlay (FULL SCREEN Z-50) -->
+    <div id="redFlashOverlay" class="fixed inset-0 bg-red-800 z-50 opacity-0 pointer-events-none"></div>
 
 
     <script>
-        // --- TONE.JS AUDIO SETUP (AUDIO CONTEXT RESUME FIX) ---
-        let backgroundLoop;
-        let audioInitialized = false;
-        let isPlaying = false;
-        const playPauseIcon = document.getElementById('play-pause-icon');
-        const audioOverlay = document.getElementById('audio-overlay');
+        // --- Global Variables for Canvas Environment (Required) ---
+        // Note: These MUST be declared with 'const' if they are injected from the environment
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? initialAuthToken : null;
+        // --- End Global Variables ---
 
-        // Digital click/beep sound
-        const clickSynth = new Tone.Synth({
-            oscillator: { type: "square" },
-            envelope: {
-                attack: 0.001,
-                decay: 0.05,
-                sustain: 0.0,
-                release: 0.01
-            }
-        }).toDestination();
-        const clickVolume = new Tone.Volume(-15).toDestination();
-        clickSynth.connect(clickVolume);
+        // Actual User Information (Revealed after 6-6-6 hit)
+        const USER_INFO = {
+            name: "JESTER",
+            age: "20",
+            personality: "Mischievous"
+        };
+        
+        // Data for the slot machine to visually land on
+        const VISUAL_STOP_DATA = { r1: "6", r2: "6", r3: "6" };
+        
+        // Arrays of dummy data for the spinning animation (single digits 0-9, excluding 6)
+        const SPIN_OPTIONS = { all: ["0", "1", "2", "3", "4", "5", "7", "8", "9"] };
 
-        function playClick() {
-            if (!audioInitialized) return;
-            clickSynth.triggerAttackRelease("C6", "32n");
-        }
+        const REELS = [
+            { id: 'reel1', target: VISUAL_STOP_DATA.r1, options: SPIN_OPTIONS.all },
+            { id: 'reel2', target: VISUAL_STOP_DATA.r2, options: SPIN_OPTIONS.all },
+            { id: 'reel3', target: VISUAL_STOP_DATA.r3, options: SPIN_OPTIONS.all }
+        ];
 
-        // Lofi Background Music Setup
-        function setupBackgroundMusic() {
-            const masterVolume = new Tone.Volume(-12).toDestination();
-            const chords = [
-                ["C4", "E4", "G4", "B4"],
-                ["A3", "C4", "E4", "G4"],
-                ["F3", "A3", "C4", "E4"],
-                ["G3", "B3", "D4", "F4"]
-            ];
+        // Constants for spinning control
+        const SLOT_HEIGHT = 100;
+        const ITEM_COUNT = 30;
+        const FINAL_INDEX = ITEM_COUNT - 2;
+        const SPIN_DURATION_BASE = 2500;
+
+        // --- FIX: Changing 'let' to 'var' for hoisted global state variables ---
+        // This ensures they are accessible immediately when 'onclick' calls a function.
+        var isSpinning = false;
+        var intervals = []; 
+        var isHoverPlaying = false; 
+        var isAudioInitialized = false; // <<< THIS IS THE FIX
+
+        const hoverSoundDuration = 0.05; // 50ms duration for the pluck sound
+        
+        // DOM Elements
+        const body = document.getElementById('body');
+        const slotScreen = document.getElementById('slotScreen');
+        const infoTab = document.getElementById('infoTab');
+        const spinButton = document.getElementById('spinButton');
+        const redFlashOverlay = document.getElementById('redFlashOverlay');
+        const jesterTitleMain = document.getElementById('jesterTitleMain');
+        const backButton = document.getElementById('backButton');
+        const bgMusicElement = document.getElementById('bgMusic'); 
+
+        // Configuration for the flash timing
+        const HOLD_TIME = 500;
+        const FADE_TIME = 500;
+
+        // --- Tone.js Audio Setup ---
+        var spinSFX;
+        var spinLoop; 
+        var jackpotSFX;
+        var hoverSFX; 
+        var clickSFX; 
+        var landingSFX; 
+        
+        // Global listener reference (used for cleanup)
+        var globalAudioStarter; 
+
+        function setupAudio() {
+            // 1. Spin SFX: Metallic, quick sound
+            spinSFX = new Tone.MetalSynth({
+                frequency: 150,
+                envelope: { attack: 0.001, decay: 0.1, release: 0.1 },
+                harmonicity: 3.1,
+                modulationIndex: 10,
+                resonance: 4000,
+                octaves: 1,
+                volume: -10
+            }).toDestination();
             
-            const chordSynth = new Tone.PolySynth(4, Tone.AMSynth, {
-                oscillator: { type: "sine" },
-                envelope: { attack: 1, decay: 1, sustain: 0.5, release: 2 }
-            }).connect(masterVolume);
-            
-            const kick = new Tone.MembraneSynth({
-                pitchDecay: 0.05,
-                octaves: 8,
-                envelope: { attack: 0.001, decay: 0.4, sustain: 0.01, release: 1 }
-            }).connect(masterVolume);
-
-            let chordIndex = 0;
-            const chordLoop = new Tone.Loop(time => {
-                const currentChord = chords[chordIndex % chords.length];
-                chordSynth.triggerAttackRelease(currentChord, "2n", time);
-                chordIndex++;
-            }, "2n");
-
-            const kickLoop = new Tone.Loop(time => {
-                if (Tone.Transport.position.startsWith("0:") || Tone.Transport.position.startsWith("1:")) {
-                    kick.triggerAttackRelease("C2", "8n", time);
-                }
-            }, "4n");
-
-            Tone.Transport.bpm.value = 80;
-
-            backgroundLoop = {
-                start: () => {
-                    chordLoop.start(0);
-                    kickLoop.start(0);
-                    Tone.Transport.start();
-                    isPlaying = true;
+            // 2. Jackpot SFX: Jarring, distorted glitch/hit
+            jackpotSFX = new Tone.NoiseSynth({
+                noise: { type: 'pink' },
+                envelope: { attack: 0.005, decay: 0.1, sustain: 0, release: 0.05 },
+                filterEnvelope: {
+                    attack: 0.06,
+                    decay: 0.1,
+                    sustain: 0,
+                    release: 0.05,
+                    baseFrequency: 6000,
+                    octaves: -2,
+                    exponent: 2
                 },
-                stop: () => {
-                    Tone.Transport.stop();
-                    isPlaying = false;
+                volume: -5
+            }).toDestination();
+
+            // 3. Hover SFX: Quick, subtle pluck/click 
+            hoverSFX = new Tone.PluckSynth({
+                attackNoise: 1,
+                dampening: 2000,
+                resonance: 0.9,
+                volume: -15
+            }).toDestination();
+            
+            // 4. Spin Loop: Rhythmic low thump for continuous spinning
+            const spinClick = new Tone.MembraneSynth({
+                pitchDecay: 0.05,
+                octaves: 2,
+                envelope: { attack: 0.001, decay: 0.2, sustain: 0.01, release: 0.1 },
+                volume: -12
+            }).toDestination();
+            
+            spinLoop = new Tone.Loop(time => {
+                spinClick.triggerAttackRelease("C1", "8n", time);
+            }, "8n").stop();
+
+            // 5. Button Click SFX
+            clickSFX = new Tone.NoiseSynth({
+                noise: { type: 'brown' },
+                envelope: { attack: 0.005, decay: 0.08, sustain: 0, release: 0.05 },
+                volume: -10
+            }).toDestination();
+            
+            // 6. Reel Landing SFX (Sharp mechanical click)
+            landingSFX = new Tone.MetalSynth({
+                frequency: 400,
+                envelope: { attack: 0.001, decay: 0.05, release: 0.02 },
+                harmonicity: 5.1,
+                modulationIndex: 32,
+                resonance: 2000,
+                octaves: 0.5,
+                volume: -15
+            }).toDestination();
+
+            Tone.Transport.loop = false; 
+        }
+
+        /**
+         * Function to initialize Tone.js context and attempt to play the background music.
+         * This function should ONLY be called from a browser-recognized user gesture handler (click/touchstart).
+         */
+        function initializeToneJsAndMusic() {
+            if (isAudioInitialized) return;
+
+            // 1. Start Tone.js Context
+            if (Tone.Transport.state !== 'started') {
+                Tone.start();
+                Tone.Transport.start();
+            }
+
+            // 2. Attempt to start background music (Requires user gesture)
+            bgMusicElement.play().then(() => {
+                isAudioInitialized = true;
+                console.log("Background music started successfully.");
+                
+                // CRITICAL: If successful, remove the global listeners (only if they exist)
+                if (globalAudioStarter) {
+                    document.removeEventListener('click', globalAudioStarter);
+                    document.removeEventListener('touchstart', globalAudioStarter);
+                    globalAudioStarter = null; // Clear the reference
                 }
-            };
+                
+            }).catch(e => {
+                // If playback fails here, something is fundamentally wrong, but log gracefully.
+                console.error("Background music failed to start even with a user interaction.", e);
+            });
         }
 
-        function toggleAudio() {
-            if (!backgroundLoop) return;
-            if (isPlaying) {
-                backgroundLoop.stop();
-                playPauseIcon.textContent = "▶️";
-            } else {
-                backgroundLoop.start();
-                playPauseIcon.textContent = "⏸️";
+        // --- Utility Functions ---
+
+        function getRandomOption(options) {
+            return options[Math.floor(Math.random() * options.length)];
+        }
+        
+        // Function to play the hover sound - DEBOUNCED
+        function playHoverSound() {
+            // Tone.js context starts implicitly when SFX is triggered.
+            
+            if (isHoverPlaying) return;
+
+            isHoverPlaying = true;
+
+            // Trigger the sound
+            hoverSFX.triggerAttackRelease("C5", hoverSoundDuration); 
+            
+            // Reset the flag after the sound duration
+            setTimeout(() => {
+                isHoverPlaying = false;
+            }, hoverSoundDuration * 1000);
+        }
+
+        // Function to create the visual representation of the reel
+        function createReelContent(reelElement, targetValue, options) {
+            let html = '';
+            
+            for (let i = 0; i < ITEM_COUNT; i++) {
+                let itemContent;
+
+                if (i === FINAL_INDEX) {
+                    itemContent = targetValue;
+                } else {
+                    itemContent = getRandomOption(options);
+                }
+
+                html += `
+                    <div class="slot-item">
+                        <div class="slot-item-text font-bold font-jester text-white" style="color: var(--deep-red);">${itemContent}</div>
+                    </div>
+                `;
             }
-            playClick(); 
+
+            reelElement.innerHTML = html;
         }
 
-        function initAudioContext() {
-            if (audioInitialized) return;
-            // CRITICAL: Resume audio context on user gesture
-            Tone.context.resume().then(() => { 
-                setupBackgroundMusic();
-                audioInitialized = true;
-                audioOverlay.style.display = 'none';
-                toggleAudio(); 
-            });
-        }
+        // --- Interactive Title Logic (Slot Screen) ---
+        function handleTitleInteraction(e) {
+            
+            const rect = jesterTitleMain.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
 
-        // Event listener for the overlay click to initialize audio
-        audioOverlay.addEventListener('click', initAudioContext);
-        playPauseIcon.addEventListener('click', toggleAudio);
-
-
-        // --- INTERACTIVE ELEMENTS (HOVER EFFECT) ---
-        const interactiveElements = document.querySelectorAll('.interactive');
-
-        interactiveElements.forEach(el => {
-            el.addEventListener('mouseenter', () => {
-                el.classList.add('neon-hover-active');
-                playClick();
-            });
-            el.addEventListener('mouseleave', () => {
-                el.classList.remove('neon-hover-active');
-            });
-            if (el.id !== 'play-pause-icon') {
-                 el.addEventListener('click', playClick);
-            }
-        });
-
-
-        // --- PARALLAX EFFECT (BETTER COVERAGE) ---
-        // Now selecting all elements that can move, including the newly tagged interactive ones.
-        const parallaxElements = document.querySelectorAll('[data-parallax-amount]');
-        const centerX = window.innerWidth / 2;
-        const centerY = window.innerHeight / 2;
-
-        document.addEventListener('mousemove', (e) => {
             const mouseX = e.clientX;
             const mouseY = e.clientY;
 
-            const normalizedX = (mouseX - centerX) / centerX;
-            const normalizedY = (mouseY - centerY) / centerY;
+            // Normalized offset (-0.5 to 0.5)
+            const dx = (mouseX - centerX) / rect.width; 
+            const dy = (mouseY - centerY) / rect.height; 
 
-            parallaxElements.forEach(el => {
-                const amount = parseFloat(el.getAttribute('data-parallax-amount')) || 15;
+            const maxShift = 3; 
+            const children = jesterTitleMain.children;
 
-                const shiftX = -normalizedX * amount;
-                const shiftY = -normalizedY * amount;
+            for (let i = 0; i < children.length; i++) {
+                const char = children[i];
+                
+                // Shift based on proximity and character index for variety
+                const shiftX = dx * maxShift * (1 + Math.sin(i * 0.5));
+                const shiftY = dy * maxShift * (1 + Math.cos(i * 0.5));
+                
+                char.style.transform = `translate(${shiftX}px, ${shiftY}px)`;
+                char.style.textShadow = `
+                    ${-shiftX / 2}px ${shiftY / 2}px 10px rgba(255, 0, 0, 0.7),
+                    ${shiftX / 2}px ${-shiftY / 2}px 10px rgba(0, 255, 255, 0.7) 
+                `;
+            }
+        }
+        
+        function resetTitleInteraction() {
+            const children = jesterTitleMain.children;
+            for (let i = 0; i < children.length; i++) {
+                const char = children[i];
+                char.style.transform = 'translate(0, 0)';
+                // Reset to original CSS shadow defined in .font-jester
+                char.style.textShadow = '0 0 10px var(--deep-red), 0 0 20px rgba(183, 0, 0, 0.5)';
+            }
+        }
 
-                el.style.transform = `translate(${shiftX}px, ${shiftY}px)`;
+        // --- Core Game Logic ---
+
+        function startReelSpin(reelIndex) {
+            const reelConfig = REELS[reelIndex];
+            const reelElement = document.getElementById(reelConfig.id);
+            const duration = SPIN_DURATION_BASE + (reelIndex * 500); 
+            const stopPosition = -FINAL_INDEX * SLOT_HEIGHT; 
+            
+            reelElement.style.transition = `transform ${duration}ms cubic-bezier(0.2, 0.8, 0.4, 1.2)`;
+            reelElement.style.transform = `translateY(${stopPosition}px)`;
+            
+            intervals[reelIndex] = true; 
+            
+            // Trigger the landing sound and completion check after the animation duration
+            setTimeout(() => {
+                // AUDIO: Play the individual reel landing sound 
+                landingSFX.triggerAttackRelease("32n");
+
+                intervals[reelIndex] = null; 
+                checkSpinComplete();
+            }, duration); 
+        }
+
+        function checkSpinComplete() {
+            if (intervals.every(i => i === null)) {
+                isSpinning = false;
+                spinButton.disabled = true; 
+                spinButton.textContent = "6-6-6 JACKPOT!";
+                spinButton.style.animation = 'none';
+                
+                body.classList.remove('sixes');
+                
+                // AUDIO: Stop the continuous spin loop 
+                spinLoop.stop();
+                
+                // AUDIO: Play jackpot sound effect 
+                jackpotSFX.triggerAttack();
+
+                // 1. Full Screen Red Flash (Instant hold)
+                redFlashOverlay.style.transition = 'none';
+                redFlashOverlay.classList.add('red-flash-active');
+                
+                // Wait for the hold duration (0.5s)
+                setTimeout(() => {
+                    // Start the smooth fade out (0.5s)
+                    redFlashOverlay.style.transition = `opacity ${FADE_TIME}ms ease-out`;
+                    redFlashOverlay.classList.remove('red-flash-active');
+                    
+                    // Simultaneously start the screen swap 
+                    slotScreen.style.opacity = '0';
+                    slotScreen.style.transform = 'translateY(-20px)';
+                    
+                    // After fade-out is complete (FADE_TIME)
+                    setTimeout(() => {
+                        slotScreen.style.display = 'none';
+                        infoTab.style.display = 'flex';
+                        
+                        // Apply permanent text effects to the large title 
+                        applyJesterTitleEffect();
+                        
+                        setTimeout(() => {
+                            infoTab.style.opacity = '1';
+                            infoTab.style.transform = 'translateY(0)';
+                            
+                        }, 50); 
+                    }, FADE_TIME); 
+
+                }, HOLD_TIME);
+            }
+        }
+
+        // Main spin function triggered by the button
+        function spinSlots() {
+            // This call to initializeToneJsAndMusic() is safe because it's called from a button click
+            initializeToneJsAndMusic(); 
+            
+            if (isSpinning) return;
+            isSpinning = true;
+
+            // AUDIO: Play button click sound 
+            clickSFX.triggerAttackRelease("16n");
+
+            spinButton.disabled = true;
+            spinButton.textContent = "DEALING CARDS...";
+            spinButton.style.animation = 'pulse-red 2s infinite';
+            
+            body.classList.add('sixes');
+            
+            // AUDIO: Play spin sound effect (one-shot)
+            spinSFX.triggerAttackRelease("16n"); 
+            
+            // AUDIO: Start the continuous loop 
+            spinLoop.start(0);
+            
+            intervals = [null, null, null];
+            
+            REELS.forEach((reelConfig, index) => {
+                const reelElement = document.getElementById(reelConfig.id);
+                createReelContent(reelElement, reelConfig.target, reelConfig.options);
+
+                reelElement.style.transition = 'none';
+                reelElement.style.transform = `translateY(0px)`;
+                
+                const delay = index * 200; 
+                setTimeout(() => {
+                    startReelSpin(index);
+                }, delay);
             });
-        });
-    </script>
+        }
 
+        // Utility to apply the aesthetic effect to the JESTER'S PROFILE title
+        function applyJesterTitleEffect() {
+            const titleEl = document.getElementById('jesterProfileTitle'); 
+            const text = titleEl.textContent;
+            let html = '';
+            
+            text.split('').forEach(char => {
+                html += `<span style="display:inline-block; position:relative;">${char}</span>`;
+            });
+            titleEl.innerHTML = html;
+        }
+
+        // Function to go back to the slot machine screen
+        function resetToSlots() {
+            // AUDIO: Play button click sound 
+            clickSFX.triggerAttackRelease("16n");
+
+            infoTab.style.opacity = '0';
+            infoTab.style.transform = 'translateY(20px)';
+            
+            setTimeout(() => {
+                infoTab.style.display = 'none';
+                slotScreen.style.display = 'block'; 
+                setTimeout(() => {
+                    slotScreen.style.opacity = '1';
+                    slotScreen.style.transform = 'translateY(0)';
+                    spinButton.disabled = false; 
+                    spinButton.textContent = "REVEAL MY CARDS";
+                    spinButton.style.animation = 'pulse-red 2s infinite';
+                    
+                    // Reset reels to 6s 
+                    REELS.forEach(reelConfig => {
+                        const reelElement = document.getElementById(reelConfig.id);
+                        createReelContent(reelElement, '6', SPIN_OPTIONS.all); 
+                        reelElement.style.transform = `translateY(${(-FINAL_INDEX * SLOT_HEIGHT)}px)`;
+                    });
+                    
+                }, 50);
+            }, 500);
+        }
+
+        // Initial setup on load 
+        document.addEventListener('DOMContentLoaded', () => {
+            // Set up initial reels
+            REELS.forEach(reelConfig => {
+                const reelElement = document.getElementById(reelConfig.id);
+                createReelContent(reelElement, '6', SPIN_OPTIONS.all); 
+                reelElement.style.transform = `translateY(${(-FINAL_INDEX * SLOT_HEIGHT)}px)`; 
+            });
+            
+            // Apply title effect for the *profile* screen
+            applyJesterTitleEffect(); 
+            
+            // Initialize audio components (doesn't start playback yet)
+            setupAudio();
+            
+            // *** Set music volume for better user experience ***
+            bgMusicElement.volume = 0.3;
+
+            // --- CRITICAL: Setup Global Listener for Initial Audio Start ---
+            // This listener uses the most reliable browser event (click/touch) to start the music.
+            globalAudioStarter = () => {
+                // This function attempts to start audio and removes itself on success
+                initializeToneJsAndMusic();
+            };
+            
+            // Attach listeners to the entire document/viewport to catch the very first interaction
+            document.addEventListener('click', globalAudioStarter);
+            document.addEventListener('touchstart', globalAudioStarter);
+            // --- END CRITICAL SECTION ---
+            
+            // --- Attach Other Event Listeners ---
+            
+            // 1. Interactive Main Title
+            jesterTitleMain.addEventListener('mousemove', handleTitleInteraction);
+            jesterTitleMain.addEventListener('mouseleave', resetTitleInteraction);
+            
+            // 2. Hover Sounds for Buttons (SFX trigger Tone.start() implicitly)
+            spinButton.addEventListener('mouseover', playHoverSound);
+            spinButton.addEventListener('touchstart', playHoverSound);
+            backButton.addEventListener('mouseover', playHoverSound);
+            backButton.addEventListener('touchstart', playHoverSound);
+        });
+
+    </script>
 </body>
 </html>
